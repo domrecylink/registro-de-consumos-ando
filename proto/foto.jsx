@@ -15,12 +15,9 @@ const FotoCaptureForm = ({ onUploaded }) => {
     { value: "refrigerantes",label: "Refrigerantes" },
   ];
 
-  const today = new Date();
-  const isoMonth = today.getFullYear() + "-" + String(today.getMonth() + 1).padStart(2, "0");
-
   const [tipo, setTipo]         = React.useState("");
   const [sucursal, setSucursal] = React.useState("");
-  const [periodo, setPeriodo]   = React.useState(isoMonth);
+  const [periodo, setPeriodo]   = React.useState("");
   const [subcat, setSubcat]     = React.useState("");
   const [consumo, setConsumo]   = React.useState("");
   const [unidad, setUnidad]     = React.useState("");
@@ -47,7 +44,7 @@ const FotoCaptureForm = ({ onUploaded }) => {
   };
 
   const reset = () => {
-    setTipo(""); setSucursal(""); setPeriodo(isoMonth);
+    setTipo(""); setSucursal(""); setPeriodo("");
     setSubcat(""); setConsumo(""); setUnidad(""); setCosto(""); setProv(""); setNotas("");
     setFile(null); setPrev("");
     setError("");
@@ -76,7 +73,7 @@ const FotoCaptureForm = ({ onUploaded }) => {
 
   const [openOpcional, setOpenOpcional] = React.useState(false);
   const optionalCount =
-    (tipo ? 1 : 0) + (sucursal ? 1 : 0) + (periodo && periodo !== isoMonth ? 1 : 0) +
+    (tipo ? 1 : 0) + (sucursal ? 1 : 0) + (periodo ? 1 : 0) +
     (subcat ? 1 : 0) + (consumo ? 1 : 0) + (costo ? 1 : 0) +
     (proveedor ? 1 : 0) + (notas ? 1 : 0);
 
