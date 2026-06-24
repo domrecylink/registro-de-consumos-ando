@@ -58,37 +58,80 @@ const FotoCaptureForm = ({ onUploaded }) => {
     }
   };
 
+  const [openOpcional, setOpenOpcional] = React.useState(false);
+  const optionalCount =
+    (tipo ? 1 : 0) + (sucursal ? 1 : 0) + (periodo && periodo !== isoMonth ? 1 : 0);
+
   return (
     <Card>
-      <div className="prt-col" style={{ gap: 16 }}>
-        {/* FOTO PRIMERO — único campo obligatorio */}
-        <Field label="Foto" required helper="Móvil: abre la cámara. Desktop: selector.">
+      <div className="prt-col" style={{ gap: 18 }}>
+        {/* HERO: dropzone grande con la foto */}
+        <label
+          className={"rc-foto-drop" + (previewUrl ? " has-image" : "")}
+          htmlFor="rc-foto-file"
+        >
           <input
+            id="rc-foto-file"
             ref={fileInputRef}
             type="file"
             accept="image/*"
             capture="environment"
             onChange={onFileChange}
-            className="prt-input"
-            style={{ width: "100%" }}
+            style={{ position: "absolute", inset: 0, opacity: 0, cursor: "pointer", width: "100%", height: "100%" }}
           />
-        </Field>
-        {previewUrl && (
-          <div className="rc-foto-preview">
-            <img src={previewUrl} alt="Vista previa" />
+          {previewUrl ? (
+            <>
+              <img src={previewUrl} alt="Vista previa" className="rc-foto-drop-img" />
+              <div className="rc-foto-drop-overlay">
+                <Icon name="refresh" size={18} />
+                <span>Cambiar foto</span>
+              </div>
+            </>
+          ) : (
+            <div className="rc-foto-drop-empty">
+              <div className="rc-foto-drop-icon"><Icon name="photo_camera" size={36} /></div>
+              <div className="rc-foto-drop-title">Tomar o subir foto</div>
+              <div className="rc-foto-drop-sub">Móvil: abre la cámara · Desktop: selector de archivos</div>
+              <div className="rc-foto-drop-cta">
+                <Icon name="cloud_upload" size={16} />
+                <span>Seleccionar archivo</span>
+              </div>
+            </div>
+          )}
+        </label>
+        {file && (
+          <div className="rc-foto-filemeta">
+            <Icon name="check_circle" size={16} />
+            <span className="rc-foto-filemeta-name">{file.name}</span>
+            <span className="rc-foto-filemeta-size">{Math.round(file.size / 1024)} KB</span>
           </div>
         )}
 
-        {/* Resto opcional — orden: tipo, sucursal, período */}
-        <Field label="Tipo de consumo" helper="Opcional · podrás definirlo al completar datos">
-          <Select value={tipo} onChange={setTipo} options={tipoOptions} placeholder="Elige tipo" />
-        </Field>
-        <Field label="Sucursal" helper={sucOptions.length === 0 ? "Configura sucursales para asignar." : "Opcional"}>
-          <Select value={sucursal} onChange={setSucursal} options={sucOptions} placeholder="Elige sucursal" />
-        </Field>
-        <Field label="Período (mes)" helper="Opcional">
-          <Input type="month" value={periodo} onChange={setPeriodo} />
-        </Field>
+        {/* Collapsible — datos opcionales */}
+        <button
+          type="button"
+          className={"rc-foto-collapse-head" + (openOpcional ? " open" : "")}
+          onClick={() => setOpenOpcional(o => !o)}
+        >
+          <Icon name={openOpcional ? "expand_less" : "expand_more"} size={18} />
+          <span className="rc-foto-collapse-title">
+            Datos opcionales{optionalCount > 0 ? " · " + optionalCount + " completado" + (optionalCount === 1 ? "" : "s") : ""}
+          </span>
+          <span className="rc-foto-collapse-hint">Se pueden completar después</span>
+        </button>
+        {openOpcional && (
+          <div className="rc-foto-collapse-body">
+            <Field label="Tipo de consumo">
+              <Select value={tipo} onChange={setTipo} options={tipoOptions} placeholder="Elige tipo" />
+            </Field>
+            <Field label="Sucursal" helper={sucOptions.length === 0 ? "Configura sucursales para asignar." : undefined}>
+              <Select value={sucursal} onChange={setSucursal} options={sucOptions} placeholder="Elige sucursal" />
+            </Field>
+            <Field label="Período (mes)">
+              <Input type="month" value={periodo} onChange={setPeriodo} />
+            </Field>
+          </div>
+        )}
 
         {error && (
           <div className="prt-help error">
