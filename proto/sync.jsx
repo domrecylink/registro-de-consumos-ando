@@ -31,6 +31,10 @@ const RC_CONFIG = {
     ENEL_PROCESADOS:    "1L042MBiUp3ChzOVTAfkVp8kI6X3vyVk9",
     AGUAS_POR_PROCESAR: "1YgqYW-hoHD5T550-99Y22SQ0wuY3XrkE",
     AGUAS_PROCESADOS:   "1LrI8Oe5_CE68ptdd6Hh0Ixu-xfEwOz6R",
+    // Flujo "Tomar foto" — usuario captura imagen, archivo va aquí;
+    // al completar datos en app o Sheet, archivo se mueve a procesados.
+    FOTOS_POR_COMPLETAR:"1WbBQXZBKixe-5nd54G07xOsdo0P6Qs_k",
+    FOTOS_PROCESADOS:   "13oru7kNnvMW5S8jV_sKPQyMvt80luFrP",
     // Folder where manual-entry facturas/boletas land. Leave empty to skip the upload
     // (the filename will still be captured locally on the record).
     MANUAL_FACTURAS:    "",
@@ -522,6 +526,96 @@ async function rcFileToBase64(file) {
   return btoa(bin);
 }
 
+// ----- Fotos: flujo "Tomar foto" -----------------------------------------
+// Sube imagen a FOTOS_POR_COMPLETAR, agrega fila pendiente en hoja "Fotos".
+// Al completar, mueve archivo a FOTOS_PROCESADOS y marca status=procesado.
+
+const FOTOS_SHEET = "Fotos";
+// Orden y semántica de columnas en la hoja "Fotos":
+//   1 File ID | 2 Drive URL | 3 Fecha subida | 4 Tipo | 5 Sucursal | 6 Subcat
+//   7 Período | 8 Status     | 9 Fecha compl. | 10 Consumo | 11 Unidad | 12 Costo
+//  13 Proveedor | 14 Notas
+const FOTOS_HEADERS = [
+  "File ID", "Drive URL", "Fecha subida", "Tipo", "Sucursal", "Subcategoría",
+  "Período", "Status", "Fecha completado",
+  "Consumo", "Unidad", "Costo", "Proveedor", "Notas",
+];
+
+async function rcUploadFoto({ file, tipo, sucursal, periodo, subcat }) {
+  if (!rcEndpointConfigured()) throw new Error("Backend no configurado.");
+  const folderId = RC_CONFIG.FOLDERS.FOTOS_POR_COMPLETAR;
+  if (!folderId) throw new Error("FOTOS_POR_COMPLETAR no configurado en sync.jsx");
+  const base64 = await rcFileToBase64(file);
+  const up = await rcApiPost({
+    action: "upload",
+    name: file.name,
+    mimeType: file.type || "image/jpeg",
+    base64,
+    folderId,
+  });
+  const fechaSubida = new Date().toISOString();
+  const row = [
+    up.id, up.link, fechaSubida,
+    tipo || "", sucursal || "", subcat || "",
+    periodo || "", "pendiente", "",
+    "", "", "", "", "",
+  ];
+  await rcApiPost({ action: "append", sheet: FOTOS_SHEET, values: [row] });
+  return { fileId: up.id, link: up.link };
+}
+
+async function rcReadFotos() {
+  if (!rcEndpointConfigured()) return [];
+  const data = await rcApiGet({ action: "getFotos" });
+  const rows = (data && data.rows) || [];
+  // rowIndex = 2 corresponde a la primera fila de datos (asumiendo encabezado en fila 1)
+  return rows.map((r, i) => ({
+    rowIndex:        i + 2,
+    fileId:          r[0] || "",
+    link:            r[1] || "",
+    fechaSubida:     r[2] || "",
+    tipo:            r[3] || "",
+    sucursal:        r[4] || "",
+    subcat:          r[5] || "",
+    periodo:         r[6] || "",
+    status:          (r[7] || "").toString().toLowerCase(),
+    fechaCompletado: r[8] || "",
+    consumo:         r[9] || "",
+    unidad:          r[10] || "",
+    costo:           r[11] || "",
+    proveedor:       r[12] || "",
+    notas:           r[13] || "",
+  }));
+}
+
+async function rcCompleteFoto({ fileId, rowIndex, patch }) {
+  if (!rcEndpointConfigured()) throw new Error("Backend no configurado.");
+  if (!rowIndex) throw new Error("rowIndex requerido");
+  const now = new Date().toISOString();
+  // Columnas que actualizamos (col index 1-based en hoja Fotos)
+  const cells = [
+    [6,  patch.subcat    || ""],
+    [8,  "procesado"],
+    [9,  now],
+    [10, patch.consumo   || ""],
+    [11, patch.unidad    || ""],
+    [12, patch.costo     || ""],
+    [13, patch.proveedor || ""],
+    [14, patch.notas     || ""],
+  ];
+  for (const [col, value] of cells) {
+    await rcApiPost({ action: "update", sheet: FOTOS_SHEET, row: rowIndex, col, value });
+  }
+  if (fileId && RC_CONFIG.FOLDERS.FOTOS_PROCESADOS) {
+    await rcApiPost({
+      action: "move",
+      fileId,
+      fromFolderId: RC_CONFIG.FOLDERS.FOTOS_POR_COMPLETAR,
+      toFolderId:   RC_CONFIG.FOLDERS.FOTOS_PROCESADOS,
+    });
+  }
+}
+
 // ----- Confirm handler ----------------------------------------------------
 
 async function rcHandleConfirm(ev) {
@@ -876,4 +970,5 @@ Object.assign(window, {
   StoreBridge, SyncBootstrap, SyncToaster, SyncStatus, SheetLink, RC_CONFIG,
   rcReadConfigSucursales, rcWriteConfigSucursales, rcFlattenConfig, rcUnflattenConfig,
   rcReadEmissions, rcWriteEmissions, rcFlattenEmissions, rcUnflattenEmissions,
+  rcUploadFoto, rcReadFotos, rcCompleteFoto,
 });

@@ -4,18 +4,21 @@
 // Hash router — keeps URL in sync with state.view
 // =========================================================
 const VIEW_HASH = {
-  landing:      "/",
-  dashboard:    "/dashboard",
-  register:     "/registrar",
-  manual:       "/registrar/manual",
-  upload:       "/registrar/subir",
-  config:       "/configuracion",
-  "config-edit":"/configuracion/editar",
-  matrix:       "/matriz",
-  impacto:      "/impacto",
-  factores:     "/impacto/factores",
-  metas:        "/impacto/metas",
-  onboarding:   "/onboarding",
+  landing:        "/",
+  dashboard:      "/dashboard",
+  register:       "/registrar",
+  manual:         "/registrar/manual",
+  upload:         "/registrar/subir",
+  "foto-capture": "/registrar/foto",
+  "foto-cola":    "/fotos",
+  "foto-complete":"/fotos/completar",
+  config:         "/configuracion",
+  "config-edit":  "/configuracion/editar",
+  matrix:         "/matriz",
+  impacto:        "/impacto",
+  factores:       "/impacto/factores",
+  metas:          "/impacto/metas",
+  onboarding:     "/onboarding",
 };
 const HASH_VIEW = Object.fromEntries(Object.entries(VIEW_HASH).map(([v, h]) => [h, v]));
 
@@ -113,18 +116,22 @@ const ViewSwitcher = () => {
     case "impacto":     return <ImpactoView />;
     case "factores":    return <FactoresView />;
     case "metas":       return <MetasView />;
-    case "register":    return <RegisterHubView />;
+    case "register":     return <RegisterHubView />;
+    case "foto-capture": return <FotoCaptureView />;
+    case "foto-cola":    return <FotoColaView />;
+    case "foto-complete":return <FotoCompleteView />;
     case "landing":
-    default:            return <Landing />;
+    default:             return <Landing />;
   }
 };
 
 const SIDEBAR_ITEMS = [
-  { view: "landing",    label: "Inicio",        icon: "home",         extra: {} },
-  { view: "dashboard",  label: "Dashboard",     icon: "dashboard",    extra: {} },
-  { view: "impacto",    label: "Impacto",       icon: "eco",          extra: {} },
-  { view: "register",   label: "Registrar",     icon: "edit",         extra: {} },
-  { view: "config",     label: "Configuración", icon: "settings",     extra: {} },
+  { view: "landing",    label: "Inicio",        icon: "home",          extra: {} },
+  { view: "dashboard",  label: "Dashboard",     icon: "dashboard",     extra: {} },
+  { view: "impacto",    label: "Impacto",       icon: "eco",           extra: {} },
+  { view: "register",   label: "Registrar",     icon: "edit",          extra: {} },
+  { view: "foto-cola",  label: "Fotos",         icon: "photo_camera",  extra: {} },
+  { view: "config",     label: "Configuración", icon: "settings",      extra: {} },
 ];
 
 const Sidebar = ({ collapsed, onToggle }) => {
@@ -156,7 +163,8 @@ const Sidebar = ({ collapsed, onToggle }) => {
             || (it.view === "config" && state.view === "config-edit")
             || (it.view === "dashboard" && state.view === "matrix")
             || (it.view === "impacto" && (state.view === "factores" || state.view === "metas"))
-            || (it.view === "register" && (state.view === "manual" || state.view === "upload"));
+            || (it.view === "register" && (state.view === "manual" || state.view === "upload" || state.view === "foto-capture"))
+            || (it.view === "foto-cola" && state.view === "foto-complete");
           return (
             <button
               key={it.view}
@@ -217,6 +225,19 @@ const RegisterHubView = () => {
             <Chip size="sm">Enel</Chip>
             <Chip size="sm">Aguas Andinas</Chip>
             <Chip size="sm">Iconstruye</Chip>
+          </span>
+        </button>
+        <button
+          className="rc-register-card alt"
+          onClick={() => dispatch({ type: "NAVIGATE", view: "foto-capture" })}
+        >
+          <span className="rc-register-card-ico alt"><Icon name="photo_camera" size={28} /></span>
+          <span className="rc-register-card-title">Tomar foto</span>
+          <span className="rc-register-card-desc">Captura medidor o documento. Datos se completan luego desde la cola o el Sheet.</span>
+          <span className="rc-register-card-chips">
+            <Chip size="sm">Móvil</Chip>
+            <Chip size="sm">Drive</Chip>
+            <Chip size="sm">Diferido</Chip>
           </span>
         </button>
       </div>

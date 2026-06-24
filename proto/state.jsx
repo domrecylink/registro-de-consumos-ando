@@ -134,9 +134,12 @@ const nextEntryId = () => "ent" + (++__entryIdC);
 // ----- Initial state -----
 const initialState = {
   // routing
-  view: "landing",            // landing | manual | upload | preview | dashboard | subcat | onboarding | config | config-edit | matrix | register | impacto | factores | metas
+  view: "landing",            // landing | manual | upload | preview | dashboard | subcat | onboarding | config | config-edit | matrix | register | impacto | factores | metas | foto-capture | foto-cola | foto-complete
   manualStep: "form",         // form | preview | success
   uploadStep: 1,              // 1 | 2 | 3 | 4 (preview)
+  // fotos (módulo "Tomar foto")
+  fotos: { rows: [], loading: false, error: null, invalidatedAt: 0 },
+  fotoCompleteRow: null,      // rowIndex de la fila siendo completada
   // domain — empty by default; populated from Google Sheets on login + refresh
   records: [],
   recordsLoading: false,
@@ -195,7 +198,23 @@ function emptyDraft() {
 function reducer(state, action) {
   switch (action.type) {
     case "NAVIGATE":
-      return { ...state, view: action.view, manualStep: action.manualStep || state.manualStep, uploadStep: action.uploadStep || state.uploadStep };
+      return {
+        ...state,
+        view: action.view,
+        manualStep: action.manualStep || state.manualStep,
+        uploadStep: action.uploadStep || state.uploadStep,
+        fotoCompleteRow: ("fotoCompleteRow" in action) ? action.fotoCompleteRow : state.fotoCompleteRow,
+      };
+
+    // ----- Fotos (módulo Tomar foto)
+    case "FOTO/LOAD_START":
+      return { ...state, fotos: { ...state.fotos, loading: true, error: null } };
+    case "FOTO/LOAD_OK":
+      return { ...state, fotos: { ...state.fotos, loading: false, error: null, rows: action.rows || [] } };
+    case "FOTO/LOAD_FAIL":
+      return { ...state, fotos: { ...state.fotos, loading: false, error: action.error || "Error desconocido" } };
+    case "FOTO/INVALIDATE":
+      return { ...state, fotos: { ...state.fotos, invalidatedAt: state.fotos.invalidatedAt + 1 } };
 
     // ----- Manual draft
     case "MANUAL/SET_SHARED_FIELD": {

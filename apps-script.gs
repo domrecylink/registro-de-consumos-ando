@@ -42,12 +42,15 @@
  */
 
 const CONFIG = {
-  SPREADSHEET_ID: "1e6v7yPP05w05OIfsHRyyU3cfXXDPhVzg43TL_HvXihU",
+  // 👉 INSTANCIA ANDO. Si copias este archivo a la planilla Euro, cambia este ID.
+  SPREADSHEET_ID: "1Aa0daLD5uyHbgQuxWGsxUADJXw4eqU7Qhr7kyDjK7_w",
   FOLDERS: {
-    ENEL_POR_PROCESAR:  "1led0ePxm2yEuJSPWVuV-aPik-28hlbG7",
-    ENEL_PROCESADOS:    "1AI2biUrUAZFHV9dYubNm2xGKh1gmzpus",
-    AGUAS_POR_PROCESAR: "1IHvHFeB-OWSIIfyxaUh3YvpoBnmGMXz9",
-    AGUAS_PROCESADOS:   "1rp-qUzPUYu9dX24YZmCeNR7CXgwSzY8p",
+    ENEL_POR_PROCESAR:  "1_9EbWKV-G81PbIs0Pp5v9GwfsDADe-nz",
+    ENEL_PROCESADOS:    "1L042MBiUp3ChzOVTAfkVp8kI6X3vyVk9",
+    AGUAS_POR_PROCESAR: "1YgqYW-hoHD5T550-99Y22SQ0wuY3XrkE",
+    AGUAS_PROCESADOS:   "1LrI8Oe5_CE68ptdd6Hh0Ixu-xfEwOz6R",
+    FOTOS_POR_COMPLETAR:"1WbBQXZBKixe-5nd54G07xOsdo0P6Qs_k",
+    FOTOS_PROCESADOS:   "13oru7kNnvMW5S8jV_sKPQyMvt80luFrP",
   },
   HEADERS: {
     Combustible:    ["Link", "Fecha", "Consumo", "Costo", "Empresa", "Sucursal", "Tipo", "Proveedor", "Estado"],
@@ -55,6 +58,8 @@ const CONFIG = {
     Agua:           ["Link PDF", "Número de cliente", "Fecha emisión", "Consumo total", "Costo ($)", "Empresa", "Sucursal", "Tipo de consumo", "Proveedor", "Subcategoría", "Estado"],
     "N° de cliente":["Número de cliente", "Empresa", "Sucursal", "Tipo de consumo", "Proveedor"],
     "Fill out":     ["Submission ID", "Submission time", "Nombre Usuario", "Nombre sucursal", "Mes de registro", "N° trabajadores", "N° trabajadoras", "m2 totales", "% Avance", "URL Excel Petróleo", "URL Excel Gas", "Procesado"],
+    // Flujo "Tomar foto" — una fila por foto subida; pendiente hasta que se completen datos.
+    Fotos:          ["File ID", "Drive URL", "Fecha subida", "Tipo", "Sucursal", "Subcategoría", "Período", "Status", "Fecha completado", "Consumo", "Unidad", "Costo", "Proveedor", "Notas"],
   },
 };
 
@@ -67,6 +72,7 @@ function doGet(e) {
     if (action === "getConfig") return jsonOut(getConfigValue(e.parameter.key));
     if (action === "getConfigSucursales") return jsonOut(getConfigSucursales());
     if (action === "getEmissions") return jsonOut(getEmissions());
+    if (action === "getFotos") return jsonOut(getFotos());
     if (action === "ping") return jsonOut({ ok: true, pong: new Date().toISOString() });
     return jsonOut({ error: "unknown action: " + action });
   } catch (err) {
@@ -271,4 +277,16 @@ function setEmissions(rows) {
   if (rows && rows.length) {
     sheet.getRange(2, 1, rows.length, EMISSIONS_HEADERS.length).setValues(rows);
   }
+}
+
+// ----- Fotos (módulo "Tomar foto") --------------------------------------
+// La hoja "Fotos" se crea automáticamente en el primer `append` usando
+// CONFIG.HEADERS.Fotos. uploadFile / appendRows / updateCell / moveFile ya
+// existen; sólo agregamos el getter de lectura de la cola.
+function getFotos() {
+  var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  var sheet = ss.getSheetByName("Fotos");
+  if (!sheet) return { rows: [] };
+  var data = sheet.getDataRange().getDisplayValues();
+  return { rows: data.slice(1) };
 }
