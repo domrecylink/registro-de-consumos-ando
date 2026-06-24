@@ -134,7 +134,7 @@ const nextEntryId = () => "ent" + (++__entryIdC);
 // ----- Initial state -----
 const initialState = {
   // routing
-  view: "landing",            // landing | manual | upload | preview | dashboard | subcat | onboarding | config | config-edit | matrix | register | impacto | factores | metas | foto-capture | foto-cola | foto-complete
+  view: "landing",            // landing | manual | upload | preview | dashboard | subcat | onboarding | config | config-edit | matrix | register | impacto | factores | metas | foto-hub | foto-complete
   manualStep: "form",         // form | preview | success
   uploadStep: 1,              // 1 | 2 | 3 | 4 (preview)
   // fotos (módulo "Tomar foto")
