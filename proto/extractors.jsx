@@ -156,6 +156,44 @@ function rcExtraerAguas(textBundle) {
   return out;
 }
 
+// ----- Aguas del Valle parser --------------------------------------------
+// Replica del script Python extractor_aguasdelvalle.py.
+//
+// Estructura del PDF (capa de texto):
+//   - N° cliente: "1243948-2" (7 dígitos + guión + dígito verificador).
+//   - Fila de lecturas: <fecha_actual> <fecha_anterior> <prox_estimada>
+//       <lect_actual> <lect_anterior> <consumo_cliente> <consumo_a_facturar>
+//     Campo 6 = consumo_cliente (m³).
+//   - Línea con folio: "<fecha> <folio>" donde folio = 6-8 dígitos sin guión.
+//   - Total a pagar: "$ 931.170".
+function rcExtraerAguasDelValle(textBundle) {
+  const texto = textBundle.combined;
+  const out = { numeroCliente: "", fecha: "", consumo: 0, costo: 0 };
+
+  // A. N° cliente — formato XXXXXXX-X.
+  const mCli = texto.match(/\b(\d{7}-\d)\b/);
+  if (mCli) out.numeroCliente = mCli[1];
+
+  // B. Fila de lecturas — tomamos fecha lectura actual y consumo_cliente.
+  const reFila = /(\d{2}\/\d{2}\/\d{4})\s+(\d{2}\/\d{2}\/\d{4})\s+(\d{2}\/\d{2}\/\d{4})\s+(\d+)\s+(\d+)\s+([\d.,]+)\s+([\d.,]+)/;
+  const mFila = texto.match(reFila);
+  if (mFila) {
+    const [d, m, y] = mFila[1].split("/");
+    out.fecha = `${y}-${m}-${d}`;
+    const consStr = String(mFila[6] || "").replace(/\./g, "").replace(",", ".");
+    const cons = parseFloat(consStr);
+    if (!isNaN(cons)) out.consumo = cons;
+  }
+
+  // C. Total a pagar — "$ 931.170" → 931170.
+  const mTotal = texto.match(/\$\s*([\d.]+)/);
+  if (mTotal) {
+    out.costo = parseInt(String(mTotal[1]).replace(/\./g, ""), 10) || 0;
+  }
+
+  return out;
+}
+
 // ----- Iconstruye Excel parser (replica de appscript.txt) ----------------
 const RC_EXCEL = {
   FILA_DATOS: 14,
@@ -233,6 +271,8 @@ async function rcExtract(file, provider) {
     let datos, type;
     if (provider.id === "enel" || (provider.type === "electricidad" && provider.id !== "generic")) {
       datos = rcExtraerEnel(text); type = "electricidad";
+    } else if (provider.id === "aguas-del-valle") {
+      datos = rcExtraerAguasDelValle(text); type = "agua";
     } else if (provider.id === "aguas-andinas" || provider.type === "agua") {
       datos = rcExtraerAguas(text); type = "agua";
     } else if (provider.id === "generic") {
