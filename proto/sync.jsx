@@ -42,7 +42,7 @@ const RC_CONFIG = {
     "enel":            { porProcesar: "1_9EbWKV-G81PbIs0Pp5v9GwfsDADe-nz", procesados: "1L042MBiUp3ChzOVTAfkVp8kI6X3vyVk9" },
     "cge":             { porProcesar: "1kYVBaLrGGV5Gy6i_C-BeibmzdGPwoa2i", procesados: "1FHKg06YqdWuyFYqUwIfo5wpcA3NBYY4G" },
     "aguas-andinas":   { porProcesar: "1YgqYW-hoHD5T550-99Y22SQ0wuY3XrkE", procesados: "1LrI8Oe5_CE68ptdd6Hh0Ixu-xfEwOz6R" },
-    "aguas-del-valle": { porProcesar: "",                                   procesados: "" },
+    "aguas-del-valle": { porProcesar: "1eTRRR64rEvGHPo4Obc-l8OOTHJBtf1e9", procesados: "1L67g7gl1YaePbqV73aup94Jyr9hR1g5N" },
     "esval":           { porProcesar: "",                                   procesados: "" },
     "iconstruye-pet":  { porProcesar: "",                                   procesados: "" },
     "copec":           { porProcesar: "",                                   procesados: "" },
