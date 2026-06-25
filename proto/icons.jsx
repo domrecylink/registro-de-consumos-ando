@@ -38,7 +38,8 @@ const ICON_PATHS = {
   content_copy:  <g><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></g>,
   cloud_upload:  <g><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/><polyline points="16 16 12 12 8 16"/></g>,
   file_download: <g><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></g>,
-  filter_alt_off:<g><line x1="2" y1="2" x2="22" y2="22"/><path d="M22 3H7l5 6.5v4l4 2v-6L22 3z" /></g>,
+  filter_alt:    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>,
+  filter_alt_off:<g><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/><line x1="3" y1="3" x2="21" y2="21"/></g>,
 
   // Navigation / categorical
   home:          <g><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-5h-2v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></g>,
