@@ -91,6 +91,9 @@ function rcParseDate(s) {
   if (m) return `${m[3]}-${String(m[2]).padStart(2,"0")}-${String(m[1]).padStart(2,"0")}`;
   m = str.match(/^(\d{1,2})-(\d{1,2})-(\d{4})/);
   if (m) return `${m[3]}-${String(m[2]).padStart(2,"0")}-${String(m[1]).padStart(2,"0")}`;
+  // DD-MM-YY (2 dígitos de año, usado por registros manuales)
+  m = str.match(/^(\d{1,2})-(\d{1,2})-(\d{2})$/);
+  if (m) return `20${m[3]}-${String(m[2]).padStart(2,"0")}-${String(m[1]).padStart(2,"0")}`;
   m = str.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})/);
   if (m) return `${m[1]}-${String(m[2]).padStart(2,"0")}-${String(m[3]).padStart(2,"0")}`;
   if (/^\d+(\.\d+)?$/.test(str)) {
@@ -457,6 +460,14 @@ function endOfMonth(iso) {
   const last = new Date(y, m, 0).getDate();
   return String(last).padStart(2, "0") + "/" + String(m).padStart(2, "0") + "/" + y;
 }
+// Para registros manuales — escribe la fecha tal cual la eligió el usuario en
+// formato DD-MM-YY (orden D-M-Y explícito, 2 dígitos de año).
+function fmtDDMMYY(iso) {
+  if (!iso) return "";
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso));
+  if (!m) return iso;
+  return m[3] + "-" + m[2] + "-" + m[1].slice(2);
+}
 function rcEstadoLabel(estado) {
   return estado === "eliminada" ? "Eliminada" : "Activa";
 }
@@ -469,10 +480,11 @@ function rcEstadoValue(label) {
 function rowsByType(records) {
   const byType = { combustible: [], electricidad: [], agua: [] };
   for (const r of records) {
+    const isManual = r.origen === "manual";
     if (r.type === "combustible") {
       byType.combustible.push([
         r._driveLink || "",
-        endOfMonth(r.date),
+        isManual ? fmtDDMMYY(r.date) : endOfMonth(r.date),
         r.cantidad,
         r.costo,
         RC_CONFIG.EMPRESA,
@@ -485,7 +497,7 @@ function rowsByType(records) {
       byType.electricidad.push([
         r._driveLink || "",
         r.numeroCliente || "",
-        r.date,
+        isManual ? fmtDDMMYY(r.date) : r.date,
         r.cantidad,
         r.costo,
         RC_CONFIG.EMPRESA,
@@ -498,7 +510,7 @@ function rowsByType(records) {
       byType.agua.push([
         r._driveLink || "",
         r.numeroCliente || "",
-        r.date,
+        isManual ? fmtDDMMYY(r.date) : r.date,
         r.cantidad,
         r.costo,
         RC_CONFIG.EMPRESA,
