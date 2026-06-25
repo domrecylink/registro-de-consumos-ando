@@ -118,6 +118,49 @@ function rcExtraerEnel(textBundle) {
   return out;
 }
 
+// ----- CGE parser --------------------------------------------------------
+// Réplica del script Python extractor_cge.py. Soporta:
+//   - N° Factura tras "FACTURA ELECTRONICA Nº <folio>".
+//   - N° Cliente en la línea anterior a "Fecha de emisión".
+//   - Consumo: "Consumo total del mes = 20.440 kWh" o fallback
+//     "Electricidad Consumida (20.440 kWh)".
+//   - Fecha: fin del período de lectura ("01/01/2026 - 31/01/2026" → la 2a).
+//   - Total a pagar: "Total a pagar $ 4.778.200".
+function rcExtraerCGE(textBundle) {
+  const texto = textBundle.combined;
+  const linedTexto = textBundle.lined;
+  const out = { numeroCliente: "", fecha: "", consumo: 0, costo: 0 };
+
+  // N° Cliente: línea con sólo dígitos justo antes de "Fecha de emisión".
+  // En el bundle "combined" perdimos saltos relevantes, así que buscamos en lined.
+  let mCli = linedTexto.match(/\n(\d{6,8})\s*\n\s*Fecha de emisi[oó]n/i);
+  if (!mCli) mCli = linedTexto.match(/(\d{6,8})\s*\n\s*Fecha de emisi[oó]n/i);
+  if (!mCli) mCli = texto.match(/\b(\d{6,8})\b[^\d]{0,40}Fecha de emisi[oó]n/i);
+  if (mCli) out.numeroCliente = mCli[1];
+
+  // Fecha: fin del período de lectura.
+  const mFecha = texto.match(/Per[ií]odo de lectura:\s*\d{2}\/\d{2}\/\d{4}\s*-\s*(\d{2}\/\d{2}\/\d{4})/i);
+  if (mFecha) {
+    const [d, m, y] = mFecha[1].split("/");
+    out.fecha = `${y}-${m}-${d}`;
+  }
+
+  // Consumo en kWh — preferir "Consumo total del mes", fallback al patrón Enel.
+  let mCons = texto.match(/Consumo total del mes\s*=\s*([\d.]+)\s*kWh/i);
+  if (!mCons) mCons = texto.match(/Electricidad Consumida\s*\(\s*([\d.]+)\s*kWh\s*\)/i);
+  if (mCons) {
+    out.consumo = parseInt(mCons[1].replace(/\./g, ""), 10) || 0;
+  }
+
+  // Total a pagar.
+  const mTotal = texto.match(/Total a pagar\s*\$\s*([\d.]+)/i);
+  if (mTotal) {
+    out.costo = parseInt(String(mTotal[1]).replace(/\./g, ""), 10) || 0;
+  }
+
+  return out;
+}
+
 // ----- Aguas Andinas parser ----------------------------------------------
 function rcExtraerAguas(textBundle) {
   const texto = textBundle.combined;
@@ -269,7 +312,9 @@ async function rcExtract(file, provider) {
   if (ext === "pdf") {
     const text = await rcPdfText(file);
     let datos, type;
-    if (provider.id === "enel" || (provider.type === "electricidad" && provider.id !== "generic")) {
+    if (provider.id === "cge") {
+      datos = rcExtraerCGE(text); type = "electricidad";
+    } else if (provider.id === "enel" || (provider.type === "electricidad" && provider.id !== "generic")) {
       datos = rcExtraerEnel(text); type = "electricidad";
     } else if (provider.id === "aguas-del-valle") {
       datos = rcExtraerAguasDelValle(text); type = "agua";
