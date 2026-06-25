@@ -37,7 +37,7 @@ const RC_CONFIG = {
     FOTOS_PROCESADOS:   "13oru7kNnvMW5S8jV_sKPQyMvt80luFrP",
     // Folder where manual-entry facturas/boletas land. Leave empty to skip the upload
     // (the filename will still be captured locally on the record).
-    MANUAL_FACTURAS:    "",
+    MANUAL_FACTURAS:    "1_V5cHpEBJItL0yr-Mi2Oz5IqMu5hkIAH",
     // Optional dedicated folder for documents uploaded via "Subir documento" with
     // providers other than Enel/Aguas (e.g. Iconstruye). Falls back to MANUAL_FACTURAS
     // when empty so a single config covers both flows.
