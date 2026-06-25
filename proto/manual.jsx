@@ -287,38 +287,49 @@ const ManualForm = () => {
         </div>
       </Card>
 
-      {/* Entries */}
-      {d.entries.map((entry, i) => (
-        <EntryCard
-          key={entry.id}
-          entry={entry}
-          index={i}
-          total={d.entries.length}
-          sucursal={d.sucursal}
-          errors={errs.entries?.[entry.id]}
-          onRemove={() => dispatch({ type: "MANUAL/REMOVE_ENTRY", entryId: entry.id })}
-        />
-      ))}
+      {/* Entries — solo después de elegir fecha + sucursal */}
+      {d.date && d.sucursal ? (
+        <>
+          {d.entries.map((entry, i) => (
+            <EntryCard
+              key={entry.id}
+              entry={entry}
+              index={i}
+              total={d.entries.length}
+              sucursal={d.sucursal}
+              errors={errs.entries?.[entry.id]}
+              onRemove={() => dispatch({ type: "MANUAL/REMOVE_ENTRY", entryId: entry.id })}
+            />
+          ))}
 
-      <button
-        onClick={() => dispatch({ type: "MANUAL/ADD_ENTRY" })}
-        className="rc-manual-add-entry"
-      >
-        <Icon name="add" size={18} />
-        <span>Agregar otro consumo</span>
-      </button>
+          <button
+            onClick={() => dispatch({ type: "MANUAL/ADD_ENTRY" })}
+            className="rc-manual-add-entry"
+          >
+            <Icon name="add" size={18} />
+            <span>Agregar otro consumo</span>
+          </button>
 
-      <div className="prt-spread" style={{ marginTop: 22 }}>
-        <Btn kind="ghost" onClick={() => { dispatch({ type: "MANUAL/RESET" }); dispatch({ type: "NAVIGATE", view: "landing" }); }}>
-          Cancelar
-        </Btn>
-        <div className="prt-row">
-          <Btn onClick={() => dispatch({ type: "MANUAL/RESET" })}>Limpiar todo</Btn>
-          <Btn kind="primary" iconRight="arrow_forward" onClick={onContinue}>
-            Revisar {d.entries.length} consumo{d.entries.length !== 1 ? "s" : ""}
-          </Btn>
-        </div>
-      </div>
+          <div className="prt-spread" style={{ marginTop: 22 }}>
+            <Btn kind="ghost" onClick={() => { dispatch({ type: "MANUAL/RESET" }); dispatch({ type: "NAVIGATE", view: "landing" }); }}>
+              Cancelar
+            </Btn>
+            <div className="prt-row">
+              <Btn onClick={() => dispatch({ type: "MANUAL/RESET" })}>Limpiar todo</Btn>
+              <Btn kind="primary" iconRight="arrow_forward" onClick={onContinue}>
+                Revisar {d.entries.length} consumo{d.entries.length !== 1 ? "s" : ""}
+              </Btn>
+            </div>
+          </div>
+        </>
+      ) : (
+        <Card>
+          <div className="prt-row" style={{ gap: 10, alignItems: "center" }}>
+            <Icon name="info" size={18} style={{ color: "var(--rl-gray-500)" }} />
+            <span className="prt-muted">Completa fecha y sucursal para empezar a registrar consumos.</span>
+          </div>
+        </Card>
+      )}
     </div>
   );
 };
