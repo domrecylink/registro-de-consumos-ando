@@ -182,6 +182,8 @@ function emptyEntry() {
     costo: "",
     notes: "",
     factura: "",
+    // Auto-fill de proveedor activo hasta que el usuario lo edite a mano.
+    _providerAuto: true,
   };
 }
 
@@ -236,10 +238,12 @@ function reducer(state, action) {
     // ----- Manual draft
     case "MANUAL/SET_SHARED_FIELD": {
       const draft = { ...state.manualDraft, [action.field]: action.value };
-      // Al cambiar de sucursal, las subcategorías configuradas (agua/combustible) y sus
-      // unidades cambian — limpia subcat de cada consumo para evitar valores inválidos.
+      // Al cambiar de sucursal: subcategorías y proveedores configurados cambian.
+      // Reseteamos subcat + provider de cada consumo y reactivamos el auto-fill.
       if (action.field === "sucursal") {
-        draft.entries = (draft.entries || []).map(e => ({ ...e, subcat: "" }));
+        draft.entries = (draft.entries || []).map(e => ({
+          ...e, subcat: "", provider: "", _providerAuto: true,
+        }));
       }
       const errors = { ...state.manualErrors };
       delete errors[action.field];
@@ -249,11 +253,33 @@ function reducer(state, action) {
       const entries = state.manualDraft.entries.map(e => {
         if (e.id !== action.entryId) return e;
         const next = { ...e, [action.field]: action.value };
-        if (action.field === "type") next.subcat = "";
-        // Auto-fill provider from sucursal config when type/subcat change, only if empty
-        if ((action.field === "type" || action.field === "subcat") && !next.provider) {
-          const auto = getConfiguredProvider(state, state.manualDraft.sucursal, next.type, next.subcat);
-          if (auto) next.provider = auto;
+        // Auto-fill de proveedor según config de sucursal.
+        // Reglas:
+        //   - type cambia → limpia subcat. Si el tipo NO tiene subcategorías,
+        //     pre-selecciona proveedor. Si tiene, espera al subcat.
+        //   - subcat cambia → pre-selecciona proveedor (si auto sigue activo).
+        //   - El usuario edita proveedor a mano → marca _providerAuto=false y
+        //     ya no se vuelve a sobrescribir mientras dure el draft.
+        if (action.field === "type") {
+          next.subcat = "";
+          if (next._providerAuto !== false) {
+            const subOpts = getSubcatsFor(state, next.type, state.manualDraft.sucursal);
+            if (next.type && subOpts.length === 0) {
+              const auto = getConfiguredProvider(state, state.manualDraft.sucursal, next.type, "");
+              next.provider = auto || "";
+            } else {
+              // Tipo con subcat: espera elección de subcat.
+              next.provider = "";
+            }
+          }
+        } else if (action.field === "subcat") {
+          if (next._providerAuto !== false) {
+            const auto = getConfiguredProvider(state, state.manualDraft.sucursal, next.type, next.subcat);
+            next.provider = auto || "";
+          }
+        } else if (action.field === "provider") {
+          // Edición manual del proveedor — bloquea futuros auto-fills.
+          next._providerAuto = false;
         }
         return next;
       });
