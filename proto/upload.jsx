@@ -1,7 +1,7 @@
 // Upload flow — proveedor → dropzone real → cola → preview
 
 const PROVIDER_TEMPLATES = [
-  { id: "enel",            name: "Enel",                 type: "electricidad", initials: "E",  examples: "PDF mensual",   hasExtractor: true  },
+  { id: "enel",            name: "Enel Distribución",    type: "electricidad", initials: "ED", examples: "PDF mensual",   hasExtractor: true  },
   { id: "cge",             name: "CGE",                  type: "electricidad", initials: "C",  examples: "PDF mensual",   hasExtractor: true  },
   { id: "aguas-andinas",   name: "Aguas Andinas",        type: "agua",         initials: "AA", examples: "PDF mensual · Excel detalle", hasExtractor: true },
   { id: "aguas-del-valle", name: "Aguas del Valle",      type: "agua",         initials: "AV", examples: "PDF mensual",   hasExtractor: true  },

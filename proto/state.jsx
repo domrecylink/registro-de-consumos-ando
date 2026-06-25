@@ -27,9 +27,9 @@ const INITIAL_SUBCATS = {
 };
 
 const PROVIDERS = {
-  electricidad: ["Enel", "CGE", "Saesa", "Frontel", "Chilquinta", "Conafe", "Litoral", "Edelaysén", "Edelmag", "Cooperativa Eléctrica", "Generación propia"],
+  electricidad: ["CGE", "Enel Distribución", "Chilquinta", "Grupo Saesa", "Edelmag"],
   combustible:  ["Copec", "Shell", "Petrobras", "Esmax", "Enex", "YPF", "Iconstruye Petróleo", "Lipigas", "Abastible", "Gasco", "Metrogas", "Gasvalpo"],
-  agua:         ["Aguas Andinas", "Aguas Cordillera", "Aguas del Valle", "Aguas del Altiplano", "Aguas Antofagasta", "Aguas Magallanes", "Aguas Chañar", "Aguas Patagonia", "Esval", "Essbio", "Essal", "Nuevosur", "Smapa"],
+  agua:         ["Aguas Andinas", "SMAPA", "Esval", "Essbio", "Aguas del Altiplano", "Aguas Antofagasta", "Aguas del Valle", "Aguas Araucanía", "Suralis", "Aguas Magallanes"],
 };
 
 // Fuel subcategory catalog — default + available units per combustible tipo

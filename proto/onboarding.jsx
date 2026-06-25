@@ -13,9 +13,7 @@ const OB_SISTEMAS = [
 
 const OB_PROVEEDORES = {
   electricidad: [
-    "Enel", "CGE", "Saesa", "Frontel", "Chilquinta", "Conafe", "Litoral",
-    "Edelaysén", "Edelmag", "Cooperativa Eléctrica",
-    "Generación propia",
+    "CGE", "Enel Distribución", "Chilquinta", "Grupo Saesa", "Edelmag",
   ],
   combustible: [
     "Copec", "Shell", "Petrobras", "Esmax", "Enex", "YPF",
@@ -24,9 +22,9 @@ const OB_PROVEEDORES = {
     "Metrogas", "Gasvalpo",
   ],
   agua: [
-    "Aguas Andinas", "Aguas Cordillera", "Aguas del Valle", "Aguas del Altiplano",
-    "Aguas Antofagasta", "Aguas Magallanes", "Aguas Chañar", "Aguas Patagonia",
-    "Esval", "Essbio", "Essal", "Nuevosur", "Smapa",
+    "Aguas Andinas", "SMAPA", "Esval", "Essbio",
+    "Aguas del Altiplano", "Aguas Antofagasta", "Aguas del Valle",
+    "Aguas Araucanía", "Suralis", "Aguas Magallanes",
   ],
   refrigerantes: ["Chemours", "Honeywell", "Daikin", "Linde", "Arkema", "Koura"],
 };
