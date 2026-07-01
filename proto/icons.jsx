@@ -76,6 +76,10 @@ const ICON_PATHS = {
   factory:       <g><path d="M2 20h20V8l-6 4V8l-6 4V4H6v16"/><line x1="6" y1="20" x2="6" y2="16"/><line x1="10" y1="20" x2="10" y2="16"/><line x1="14" y1="20" x2="14" y2="16"/><line x1="18" y1="20" x2="18" y2="16"/></g>,
   undo:          <g><path d="M3 7v6h6"/><path d="M3 13a9 9 0 1 0 3-7.7L3 8"/></g>,
   link:          <g><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></g>,
+
+  // Medidores
+  speed:         <g><path d="M12 14l4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/><circle cx="12" cy="14" r="1.5"/></g>,
+  smartphone:    <g><rect x="6" y="2" width="12" height="20" rx="2" ry="2"/><line x1="11" y1="18" x2="13" y2="18"/></g>,
 };
 
 const Icon = ({ name, size = 18, fill, color, style, strokeWidth = 2 }) => {

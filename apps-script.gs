@@ -63,6 +63,10 @@ const WEB_CFG = {
     "Fill out":     ["Submission ID", "Submission time", "Nombre Usuario", "Nombre sucursal", "Mes de registro", "N° trabajadores", "N° trabajadoras", "m2 totales", "% Avance", "URL Excel Petróleo", "URL Excel Gas", "Procesado"],
     // Flujo "Tomar foto" — una fila por foto subida; pendiente hasta que se completen datos.
     Fotos:          ["File ID", "Drive URL", "Fecha subida", "Tipo", "Sucursal", "Subcategoría", "Período", "Status", "Fecha completado", "Consumo", "Unidad", "Costo", "Proveedor", "Notas"],
+    // Módulo Medidores (lecturas físicas).
+    "Medidores":        ["ID", "Sucursal", "Tipo", "Nombre", "Número", "Activo"],
+    "Lecturas Medidor": ["ID", "Medidor ID", "Período", "Lectura", "Factura Link", "Factura Nombre", "Factura File ID", "Pago Link", "Pago Nombre", "Pago File ID"],
+    "Precios Medidor":  ["Sucursal", "Tipo", "Período", "Precio"],
   },
 };
 
@@ -76,6 +80,9 @@ function doGet(e) {
     if (action === "getConfigSucursales") return jsonOut(getConfigSucursales());
     if (action === "getEmissions") return jsonOut(getEmissions());
     if (action === "getFotos") return jsonOut(getFotos());
+    if (action === "getMedidores")       return jsonOut(getSheetRows("Medidores"));
+    if (action === "getLecturasMedidor") return jsonOut(getSheetRows("Lecturas Medidor"));
+    if (action === "getPreciosMedidor")  return jsonOut(getSheetRows("Precios Medidor"));
     if (action === "ping") return jsonOut({ ok: true, pong: new Date().toISOString() });
     return jsonOut({ error: "unknown action: " + action });
   } catch (err) {
@@ -120,6 +127,18 @@ function doPost(e) {
     }
     if (action === "notifyFotoPending") {
       return jsonOut(notifyFotoPending(body));
+    }
+    if (action === "setMedidores") {
+      setSheetRows("Medidores", body.rows || []);
+      return jsonOut({ ok: true });
+    }
+    if (action === "setLecturasMedidor") {
+      setSheetRows("Lecturas Medidor", body.rows || []);
+      return jsonOut({ ok: true });
+    }
+    if (action === "setPreciosMedidor") {
+      setSheetRows("Precios Medidor", body.rows || []);
+      return jsonOut({ ok: true });
     }
     return jsonOut({ error: "unknown action: " + action });
   } catch (err) {
@@ -353,4 +372,36 @@ function getFotos() {
   if (!sheet) return { rows: [] };
   var data = sheet.getDataRange().getDisplayValues();
   return { rows: data.slice(1) };
+}
+
+// ----- Genérico: lectura/escritura de una hoja por nombre --------------------
+// Usado por el módulo Medidores (hojas Medidores / Lecturas Medidor / Precios
+// Medidor). getSheetRows devuelve las filas sin encabezado; setSheetRows hace
+// clear+rewrite con el encabezado de WEB_CFG.HEADERS (mismo patrón que setEmissions).
+
+function getSheetRows(name) {
+  var ss = SpreadsheetApp.openById(WEB_CFG.SPREADSHEET_ID);
+  var sheet = ss.getSheetByName(name);
+  if (!sheet) return { rows: [] };
+  var data = sheet.getDataRange().getDisplayValues();
+  return { rows: data.slice(1) };
+}
+
+function setSheetRows(name, rows) {
+  var ss = SpreadsheetApp.openById(WEB_CFG.SPREADSHEET_ID);
+  var sheet = ss.getSheetByName(name);
+  if (!sheet) sheet = ss.insertSheet(name);
+  sheet.clear();
+  var headers = WEB_CFG.HEADERS[name];
+  if (headers) sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  if (rows && rows.length) {
+    var width = headers ? headers.length : rows[0].length;
+    // Normaliza ancho de cada fila al del encabezado.
+    var norm = rows.map(function (r) {
+      var out = r.slice(0, width);
+      while (out.length < width) out.push("");
+      return out;
+    });
+    sheet.getRange(2, 1, norm.length, width).setValues(norm);
+  }
 }

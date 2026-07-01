@@ -14,6 +14,8 @@ const VIEW_HASH = {
   config:          "/configuracion",
   "config-edit":   "/configuracion/editar",
   matrix:          "/matriz",
+  medidores:       "/medidores",
+  "medidores-movil": "/medidores/movil",
   impacto:         "/impacto",
   factores:        "/impacto/factores",
   metas:           "/impacto/metas",
@@ -318,7 +320,7 @@ const BuildBadge = () => {
 
 // Views that depend on synced records and should show the loader while the
 // first fetch is in flight. Onboarding/config/register don't need records.
-const DATA_DRIVEN_VIEWS = new Set(["landing", "dashboard", "matrix", "impacto", "factores", "metas"]);
+const DATA_DRIVEN_VIEWS = new Set(["landing", "dashboard", "matrix", "impacto", "factores", "metas", "medidores"]);
 
 const ViewSwitcher = () => {
   const { state } = useApp();
@@ -333,6 +335,8 @@ const ViewSwitcher = () => {
     case "config":      return <ConfigView />;
     case "config-edit": return <ConfigEditView />;
     case "matrix":      return <UploadMatrixView />;
+    case "medidores":      return <MedidoresView />;
+    case "medidores-movil":return <MedidoresMobileView />;
     case "impacto":     return <ImpactoView />;
     case "factores":    return <FactoresView />;
     case "metas":       return <MetasView />;
@@ -349,6 +353,7 @@ const SIDEBAR_ITEMS = [
   { view: "dashboard",  label: "Dashboard",     icon: "dashboard",     extra: {} },
   { view: "impacto",    label: "Impacto",       icon: "eco",           extra: {} },
   { view: "register",   label: "Registrar",     icon: "edit",          extra: {} },
+  { view: "medidores",  label: "Medidores",     icon: "speed",         extra: {} },
   { view: "config",     label: "Configuración", icon: "settings",      extra: {} },
 ];
 
@@ -394,6 +399,7 @@ const Sidebar = ({ collapsed, onToggle }) => {
             || (it.view === "config" && state.view === "config-edit")
             || (it.view === "dashboard" && state.view === "matrix")
             || (it.view === "impacto" && (state.view === "factores" || state.view === "metas"))
+            || (it.view === "medidores" && state.view === "medidores-movil")
             || (it.view === "register" && (state.view === "manual" || state.view === "upload" || state.view === "foto-hub" || state.view === "foto-complete"));
           return (
             <button

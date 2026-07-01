@@ -103,6 +103,25 @@ let __sucIdC = 0;
 const nextSucId = () => "suc" + (++__sucIdC);
 let __itemIdC = 0;
 const nextItemId = () => "itm" + (++__itemIdC);
+let __meterIdC = 0;
+const nextMeterId = () => "med" + (++__meterIdC);
+let __readingIdC = 0;
+const nextReadingId = () => "lec" + (++__readingIdC);
+
+// ----- Medidores seed -----
+function seedMedidores() {
+  return {
+    selSucursal: "",            // nombre de sucursal activa seleccionada
+    selType: "",                // electricidad | combustible | agua
+    tab: "matriz",              // matriz | mensual | pagos
+    period: "3m",               // 12m | 6m | 3m | 1m | custom:YYYY-MM:YYYY-MM
+    mensualMonth: CURRENT_MONTH_KEY,
+    meters: [],                 // { id, sucursal, type, nombre, numero, activo }
+    readings: [],               // { id, meterId, month:"YYYY-MM", lectura:number }
+    prices: [],                 // { sucursal, type, month:"YYYY-MM", precio:number }
+    docs: {},                   // { [meterId+"__"+month]: { factura:{link,fileId,name}, pago:{...} } }
+  };
+}
 
 function seedConfigSucursales() {
   return [];
@@ -134,7 +153,7 @@ const nextEntryId = () => "ent" + (++__entryIdC);
 // ----- Initial state -----
 const initialState = {
   // routing
-  view: "landing",            // landing | manual | upload | preview | dashboard | subcat | onboarding | config | config-edit | matrix | register | impacto | factores | metas | foto-hub | foto-complete
+  view: "landing",            // landing | manual | upload | preview | dashboard | subcat | onboarding | config | config-edit | matrix | register | impacto | factores | metas | foto-hub | foto-complete | medidores | medidores-movil
   manualStep: "form",         // form | preview | success
   uploadStep: 1,              // 1 | 2 | 3 | 4 (preview)
   // fotos (módulo "Tomar foto")
@@ -158,6 +177,8 @@ const initialState = {
   emisFilters: { sucursal: "all", period: "12m" }, // dashboard impacto: sucursal + período
   // matrix view (upload status grid)
   matrixMonth: CURRENT_MONTH_KEY,
+  // medidores (lecturas físicas de medidores)
+  medidores: seedMedidores(),
   // form drafts (manual)
   manualDraft: emptyDraft(),
   manualErrors: {},
@@ -633,6 +654,87 @@ function reducer(state, action) {
     // ----- Matrix view
     case "MATRIX/SET_MONTH":
       return { ...state, matrixMonth: action.month };
+
+    // ----- Medidores
+    case "MED/SET_SUCURSAL":
+      return { ...state, medidores: { ...state.medidores, selSucursal: action.sucursal } };
+    case "MED/SET_TYPE":
+      return { ...state, medidores: { ...state.medidores, selType: action.tipo } };
+    case "MED/SET_TAB":
+      return { ...state, medidores: { ...state.medidores, tab: action.tab } };
+    case "MED/SET_PERIOD":
+      return { ...state, medidores: { ...state.medidores, period: action.period } };
+    case "MED/SET_MENSUAL_MONTH":
+      return { ...state, medidores: { ...state.medidores, mensualMonth: action.month } };
+    case "MED/ADD_METER": {
+      const meter = {
+        id: nextMeterId(),
+        sucursal: action.sucursal,
+        type: action.tipo,
+        nombre: (action.nombre || "").trim(),
+        numero: (action.numero || "").trim(),
+        activo: true,
+      };
+      return { ...state, medidores: { ...state.medidores, meters: [...state.medidores.meters, meter] } };
+    }
+    case "MED/EDIT_METER": {
+      const meters = state.medidores.meters.map(m =>
+        m.id === action.id ? { ...m, ...action.patch } : m
+      );
+      return { ...state, medidores: { ...state.medidores, meters } };
+    }
+    case "MED/TOGGLE_METER": {
+      const meters = state.medidores.meters.map(m =>
+        m.id === action.id ? { ...m, activo: !m.activo } : m
+      );
+      return { ...state, medidores: { ...state.medidores, meters } };
+    }
+    case "MED/SET_READING": {
+      const { meterId, month } = action;
+      const empty = action.lectura === "" || action.lectura == null || isNaN(action.lectura);
+      let readings = state.medidores.readings.filter(r => !(r.meterId === meterId && r.month === month));
+      if (!empty) {
+        readings = [...readings, { id: nextReadingId(), meterId, month, lectura: Number(action.lectura) }];
+      }
+      return { ...state, medidores: { ...state.medidores, readings } };
+    }
+    case "MED/SET_PRICE": {
+      const { sucursal, tipo, month } = action;
+      const empty = action.precio === "" || action.precio == null || isNaN(action.precio);
+      let prices = state.medidores.prices.filter(p => !(p.sucursal === sucursal && p.type === tipo && p.month === month));
+      if (!empty) {
+        prices = [...prices, { sucursal, type: tipo, month, precio: Number(action.precio) }];
+      }
+      return { ...state, medidores: { ...state.medidores, prices } };
+    }
+    case "MED/SET_DOC": {
+      const key = action.meterId + "__" + action.month;
+      const cur = { ...(state.medidores.docs[key] || {}) };
+      cur[action.kind] = action.doc;   // { link, fileId, name } o null para limpiar
+      const docs = { ...state.medidores.docs, [key]: cur };
+      return { ...state, medidores: { ...state.medidores, docs } };
+    }
+    case "MED/LOAD": {
+      // Adelanta los contadores para no recrear ids ya usados al guardar de nuevo.
+      (action.meters || []).forEach(m => {
+        const n = /^med(\d+)$/.exec(m && m.id || "");
+        if (n) __meterIdC = Math.max(__meterIdC, parseInt(n[1], 10));
+      });
+      (action.readings || []).forEach(r => {
+        const n = /^lec(\d+)$/.exec(r && r.id || "");
+        if (n) __readingIdC = Math.max(__readingIdC, parseInt(n[1], 10));
+      });
+      return {
+        ...state,
+        medidores: {
+          ...state.medidores,
+          meters:   action.meters   || [],
+          readings: action.readings || [],
+          prices:   action.prices   || [],
+          docs:     action.docs     || {},
+        },
+      };
+    }
 
     // ----- Toast
     case "TOAST/SHOW":
