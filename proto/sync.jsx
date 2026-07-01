@@ -246,6 +246,25 @@ async function rcWriteConfigSucursales(sucursales) {
   await rcApiPost({ action: "setConfigSucursales", rows: rcFlattenConfig(sucursales) });
 }
 
+// Snapshot { id -> JSON } de la lista de sucursales, para diffear cambios.
+function rcSnapshotSucursales(list) {
+  const m = new Map();
+  (list || []).forEach((s) => { if (s && s.id) m.set(s.id, JSON.stringify(s)); });
+  return m;
+}
+
+// Inserta/actualiza SOLO una sucursal (por ID). No pisa las de otros usuarios.
+async function rcUpsertSucursal(suc) {
+  if (!rcEndpointConfigured() || !suc || !suc.id) return;
+  await rcApiPost({ action: "upsertSucursal", id: suc.id, rows: rcFlattenConfig([suc]) });
+}
+
+// Borra una sucursal por ID.
+async function rcDeleteSucursal(id) {
+  if (!rcEndpointConfigured() || !id) return;
+  await rcApiPost({ action: "deleteSucursal", id: id });
+}
+
 // ----- Emisiones (hoja "Emisiones") -------------------------------------
 // Scopes en columna 1:
 //   factor-empresa  | ""    | key | value | "" | "" | ""
@@ -1092,6 +1111,8 @@ const SyncBootstrap = () => {
         console.warn("[rc-sync] config load failed", e);
       }
       window.__rcConfigBootstrapped = true;
+      // Arma la línea base de sucursales en StoreBridge (estado ya cargado).
+      window.dispatchEvent(new CustomEvent("rc:config-bootstrapped"));
 
       // 3) Factores de emisión
       try {
@@ -1184,21 +1205,46 @@ const StoreBridge = () => {
     return () => { window.__rcStoreRef = null; };
   }, [app]);
 
-  // Guarda configSucursales en Sheets cuando cambia (debounce 800ms).
-  // Salta la escritura de vuelta si el valor vino de una carga inicial.
+  // Línea base de sucursales para diffear. Se arma al terminar el bootstrap
+  // (evento "rc:config-bootstrapped") con el estado ya cargado del Sheet, para
+  // que el primer cambio del usuario se detecte como diff y no se trague.
+  const prevSucRef = React.useRef(null);
+  const sucArmedRef = React.useRef(false);
   React.useEffect(() => {
-    if (!window.__rcConfigBootstrapped) return;
-    const json = JSON.stringify(app.state.configSucursales);
+    const arm = () => {
+      const ref = window.__rcStoreRef;
+      prevSucRef.current = rcSnapshotSucursales((ref && ref.state && ref.state.configSucursales) || []);
+      sucArmedRef.current = true;
+      window.__rcLoadedConfigJson = undefined;
+    };
+    window.addEventListener("rc:config-bootstrapped", arm);
+    if (window.__rcConfigBootstrapped && !sucArmedRef.current) arm();
+    return () => window.removeEventListener("rc:config-bootstrapped", arm);
+  }, []);
+
+  // Guarda configSucursales en Sheets cuando cambia (debounce 800ms).
+  // Persiste SOLO lo que cambió (upsert/delete por ID) en vez de reescribir la
+  // lista completa, para no pisar sucursales de otros usuarios (concurrencia).
+  React.useEffect(() => {
+    if (!sucArmedRef.current) return;
+    const next = app.state.configSucursales || [];
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
       if (!rcEndpointConfigured()) return;
-      if (window.__rcLoadedConfigJson === json) {
-        window.__rcLoadedConfigJson = undefined;
-        return;
-      }
+      const prev = prevSucRef.current || new Map();
+      const curr = rcSnapshotSucursales(next);
+      const byId = new Map(next.map((s) => [s.id, s]));
       try {
-        await rcWriteConfigSucursales(app.state.configSucursales);
-        console.log("[rc-sync] configSucursales guardada:", app.state.configSucursales.length, "sucursal(es)");
+        // Altas + cambios → upsert por ID.
+        for (const [id, jsonS] of curr) {
+          if (prev.get(id) !== jsonS) await rcUpsertSucursal(byId.get(id));
+        }
+        // Bajas → delete por ID.
+        for (const id of prev.keys()) {
+          if (!curr.has(id)) await rcDeleteSucursal(id);
+        }
+        prevSucRef.current = curr;
+        console.log("[rc-sync] configSucursales sincronizada (upsert/delete por ID)");
       } catch (e) {
         console.error("[rc-sync] config save failed", e);
       }
@@ -1326,7 +1372,7 @@ const SheetLink = () => null;
 
 Object.assign(window, {
   StoreBridge, SyncBootstrap, SyncToaster, SyncStatus, SheetLink, RC_CONFIG,
-  rcReadConfigSucursales, rcWriteConfigSucursales, rcFlattenConfig, rcUnflattenConfig,
+  rcReadConfigSucursales, rcWriteConfigSucursales, rcUpsertSucursal, rcDeleteSucursal, rcFlattenConfig, rcUnflattenConfig,
   rcReadEmissions, rcWriteEmissions, rcFlattenEmissions, rcUnflattenEmissions,
   rcUploadFoto, rcReadFotos, rcCompleteFoto,
   rcReadFotoNotifEmails, rcWriteFotoNotifEmails, rcNotifyFotoPending,

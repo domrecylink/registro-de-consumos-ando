@@ -90,39 +90,63 @@ function doGet(e) {
   }
 }
 
+// Serializa mutaciones al Spreadsheet. Apps Script corre ejecuciones en
+// paralelo: sin lock, dos `append` simultáneos leen el mismo getLastRow() y se
+// pisan. waitLock espera hasta 30s a que el otro termine.
+function withLock(fn) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    return fn();
+  } finally {
+    SpreadsheetApp.flush();
+    lock.releaseLock();
+  }
+}
+
 function doPost(e) {
   try {
     const body = JSON.parse(e.postData.contents || "{}");
     const action = body.action;
+    // --- Mutaciones al Sheet: bajo lock (serializadas) ---
     if (action === "setConfig") {
-      setConfigValue(body.key, body.value);
+      withLock(function () { setConfigValue(body.key, body.value); });
       return jsonOut({ ok: true });
     }
     if (action === "setConfigSucursales") {
-      setConfigSucursales(body.rows || []);
+      withLock(function () { setConfigSucursales(body.rows || []); });
+      return jsonOut({ ok: true });
+    }
+    if (action === "upsertSucursal") {
+      withLock(function () { upsertSucursal(body.id, body.rows || []); });
+      return jsonOut({ ok: true });
+    }
+    if (action === "deleteSucursal") {
+      withLock(function () { deleteSucursalRows(body.id); });
       return jsonOut({ ok: true });
     }
     if (action === "setEmissions") {
-      setEmissions(body.rows || []);
+      withLock(function () { setEmissions(body.rows || []); });
       return jsonOut({ ok: true });
     }
     if (action === "append") {
-      appendRows(body.sheet, body.values || []);
+      withLock(function () { appendRows(body.sheet, body.values || []); });
       return jsonOut({ ok: true, appended: (body.values || []).length });
     }
+    if (action === "update") {
+      withLock(function () { updateCell(body.sheet, body.row, body.col, body.value); });
+      return jsonOut({ ok: true });
+    }
+    if (action === "init") {
+      withLock(function () { ensureSheets(); });
+      return jsonOut({ ok: true });
+    }
+    // --- Drive / mail: sin lock (cada archivo es independiente, no hay carrera) ---
     if (action === "upload") {
       return jsonOut(uploadFile(body.name, body.mimeType, body.base64, body.folderId));
     }
     if (action === "move") {
       moveFile(body.fileId, body.fromFolderId, body.toFolderId);
-      return jsonOut({ ok: true });
-    }
-    if (action === "update") {
-      updateCell(body.sheet, body.row, body.col, body.value);
-      return jsonOut({ ok: true });
-    }
-    if (action === "init") {
-      ensureSheets();
       return jsonOut({ ok: true });
     }
     if (action === "notifyFotoPending") {
@@ -274,6 +298,39 @@ function setConfigSucursales(rows) {
   sheet.getRange(1, 1, 1, CONFIG_SUC_HEADERS.length).setValues([CONFIG_SUC_HEADERS]);
   if (rows && rows.length) {
     sheet.getRange(2, 1, rows.length, CONFIG_SUC_HEADERS.length).setValues(rows);
+  }
+}
+
+function _configSucSheet() {
+  var ss = SpreadsheetApp.openById(WEB_CFG.SPREADSHEET_ID);
+  var sheet = ss.getSheetByName(CONFIG_SUC_SHEET);
+  if (!sheet) {
+    sheet = ss.insertSheet(CONFIG_SUC_SHEET);
+    sheet.getRange(1, 1, 1, CONFIG_SUC_HEADERS.length).setValues([CONFIG_SUC_HEADERS]);
+  }
+  return sheet;
+}
+
+// Borra todas las filas cuya columna "Sucursal ID" (col 1) === id.
+// De abajo hacia arriba para no desalinear índices al borrar.
+function deleteSucursalRows(id) {
+  if (!id) throw new Error("sucursal id missing");
+  var sheet = _configSucSheet();
+  var data = sheet.getDataRange().getValues();
+  for (var i = data.length - 1; i >= 1; i--) { // salta encabezado (i=0)
+    if (String(data[i][0]) === String(id)) sheet.deleteRow(i + 1);
+  }
+}
+
+// Reemplaza SOLO las filas de una sucursal (por ID), sin tocar las demás.
+// Evita el clobber de la reescritura total cuando varios editan a la vez.
+function upsertSucursal(id, rows) {
+  if (!id) throw new Error("sucursal id missing");
+  deleteSucursalRows(id);
+  if (rows && rows.length) {
+    var sheet = _configSucSheet();
+    var start = sheet.getLastRow() + 1;
+    sheet.getRange(start, 1, rows.length, CONFIG_SUC_HEADERS.length).setValues(rows);
   }
 }
 
