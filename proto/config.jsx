@@ -57,9 +57,6 @@ const ConfigView = () => {
             <Btn kind="primary" icon="add" onClick={() => dispatch({ type: "CONFIG/ADD_SUC" })}>
               Agregar sucursal
             </Btn>
-            <Btn icon="tune" onClick={() => dispatch({ type: "NAVIGATE", view: "onboarding" })}>
-              Crear proyecto desde cero
-            </Btn>
             <Btn icon="arrow_back" onClick={() => dispatch({ type: "NAVIGATE", view: "dashboard" })}>
               Volver al dashboard
             </Btn>

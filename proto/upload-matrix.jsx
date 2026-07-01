@@ -145,9 +145,9 @@ const UploadMatrixView = () => {
         <EmptyState
           icon="apartment"
           title="No hay sucursales activas"
-          body="Configura al menos una sucursal en Onboarding o en Config para ver su estado de carga."
+          body="Agrega al menos una sucursal para ver su estado de carga."
           actions={
-            <Btn kind="primary" icon="tune" onClick={() => dispatch({ type: "NAVIGATE", view: "onboarding" })}>Ir a Onboarding</Btn>
+            <Btn kind="primary" icon="add" onClick={() => dispatch({ type: "CONFIG/ADD_SUC" })}>Agregar sucursal</Btn>
           }
         />
       ) : (

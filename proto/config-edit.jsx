@@ -2,7 +2,12 @@
 
 const ConfigEditView = () => {
   const { state, dispatch } = useApp();
-  const original = state.configSucursales.find(s => s.id === state.configEditId);
+  // Sucursal existente, o el draft de una nueva (configNewSuc) que aún no
+  // está en configSucursales (no persiste hasta confirmar).
+  const existing = state.configSucursales.find(s => s.id === state.configEditId);
+  const isNew = !existing;
+  const original = existing
+    || (state.configNewSuc && state.configNewSuc.id === state.configEditId ? state.configNewSuc : null);
   if (!original) return null;
 
   const [draft, setDraft] = React.useState(JSON.parse(JSON.stringify(original)));
@@ -75,6 +80,8 @@ const ConfigEditView = () => {
 
   const handleSave = () => {
     if (!validate()) return;
+    // Sucursal nueva: no hay historial que renombrar/recalcular → guarda directo.
+    if (isNew) { doSave(); return; }
     const nameChanged = draft.nombre.trim() !== original.nombre;
     const sistemaChanged = hasSistemaChanged();
     if (nameChanged) {
@@ -102,23 +109,26 @@ const ConfigEditView = () => {
     dispatch({ type: "CONFIG/SAVE_SUC", suc: { ...draft, nombre: draft.nombre.trim() } });
     dispatch({ type: "TOAST/SHOW", toast: {
       kind: "success",
-      title: "Cambios guardados",
-      body: `"${draft.nombre.trim()}" actualizada correctamente.${recalcEmissions ? " Emisiones recalculadas." : ""}`,
+      title: isNew ? "Sucursal creada" : "Cambios guardados",
+      body: isNew
+        ? `"${draft.nombre.trim()}" fue creada correctamente.`
+        : `"${draft.nombre.trim()}" actualizada correctamente.${recalcEmissions ? " Emisiones recalculadas." : ""}`,
     }});
     setConfirmModal(null);
   };
 
   const handleCancel = () => {
-    dispatch({ type: "NAVIGATE", view: "config" });
+    // Descarta el draft de sucursal nueva (no persiste); en edición solo vuelve.
+    dispatch({ type: "CONFIG/CANCEL_EDIT" });
   };
 
   return (
     <div>
       <SectionHead
-        eyebrow={`Configuración / Sucursales / ${original.nombre}`}
-        title={`Editar: ${draft.nombre || "Sin nombre"}`}
+        eyebrow={isNew ? "Configuración / Sucursales / Nueva" : `Configuración / Sucursales / ${original.nombre}`}
+        title={isNew ? `Nueva sucursal${draft.nombre ? ": " + draft.nombre : ""}` : `Editar: ${draft.nombre || "Sin nombre"}`}
         right={
-          <Btn icon="arrow_back" onClick={handleCancel}>Volver a configuración</Btn>
+          <Btn icon="arrow_back" onClick={handleCancel}>{isNew ? "Cancelar" : "Volver a configuración"}</Btn>
         }
       />
 

@@ -176,6 +176,7 @@ const initialState = {
   // config (sucursales setup, populated by onboarding or seeded)
   configSucursales: seedConfigSucursales(),
   configEditId: null,         // id of sucursal being edited
+  configNewSuc: null,         // draft de sucursal nueva (aún no persistida)
   // emisiones GEI (Impacto Ambiental)
   emissions: seedEmissions(),
   emisScope: "all",           // dashboard impacto: all | 1 | 2 | 3
@@ -535,19 +536,27 @@ function reducer(state, action) {
         ...state,
         configSucursales: state.configSucursales.filter(s => s.id !== action.id),
       };
-    case "CONFIG/SAVE_SUC":
+    case "CONFIG/SAVE_SUC": {
+      // Upsert: si ya existe la actualiza; si es nueva (venía de configNewSuc)
+      // la agrega. Recién aquí entra a configSucursales → recién aquí persiste.
+      const _exists = state.configSucursales.some(s => s.id === action.suc.id);
+      const _list = _exists
+        ? state.configSucursales.map(s => s.id === action.suc.id ? action.suc : s)
+        : [...state.configSucursales, action.suc];
       return {
         ...state,
-        configSucursales: state.configSucursales.map(s =>
-          s.id === action.suc.id ? action.suc : s
-        ),
+        configSucursales: _list,
+        configNewSuc: null,
         view: "config",
         configEditId: null,
       };
+    }
     case "CONFIG/ADD_SUC": {
+      // NO se agrega a configSucursales todavía (si no, el sync la guardaría
+      // aunque el usuario cancele). Vive como draft hasta CONFIG/SAVE_SUC.
       const newSuc = {
         id: nextSucId(),
-        nombre: "Nueva sucursal",
+        nombre: "",
         direccion: "",
         activa: true,
         items: {
@@ -559,11 +568,14 @@ function reducer(state, action) {
       };
       return {
         ...state,
-        configSucursales: [...state.configSucursales, newSuc],
+        configNewSuc: newSuc,
         view: "config-edit",
         configEditId: newSuc.id,
       };
     }
+    case "CONFIG/CANCEL_EDIT":
+      // Descarta cualquier draft de sucursal nueva sin persistir.
+      return { ...state, configNewSuc: null, view: "config", configEditId: null };
     case "CONFIG/RENAME_HISTORY":
       return {
         ...state,

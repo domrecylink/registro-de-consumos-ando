@@ -123,7 +123,8 @@ const Landing = () => {
             {sucStatuses.length === 0 ? (
               <div className="rc-home-empty">
                 <Icon name="apartment" size={28} style={{ color: "var(--rl-gray-300)" }} />
-                <div className="prt-hint" style={{ marginTop: 6 }}>Configura sucursales en Onboarding.</div>
+                <div className="prt-hint" style={{ marginTop: 6, marginBottom: 8 }}>Aún no hay sucursales configuradas.</div>
+                <Btn size="sm" kind="primary" icon="add" onClick={() => dispatch({ type: "CONFIG/ADD_SUC" })}>Agregar sucursal</Btn>
               </div>
             ) : sucStatuses.map(({ suc, badge }) => (
               <button key={suc.id} className="rc-home-suc" onClick={() => go("matrix")}>
