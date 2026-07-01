@@ -1235,16 +1235,14 @@ const StoreBridge = () => {
       const curr = rcSnapshotSucursales(next);
       const byId = new Map(next.map((s) => [s.id, s]));
       try {
-        // Altas + cambios → upsert por ID.
+        // SOLO upsert (altas + cambios) por ID. Nunca borra: si una sucursal
+        // desaparece del estado local (pestaña vieja, carga parcial, etc.) NO
+        // se elimina del server. Evita pérdida de proyectos antiguos.
         for (const [id, jsonS] of curr) {
           if (prev.get(id) !== jsonS) await rcUpsertSucursal(byId.get(id));
         }
-        // Bajas → delete por ID.
-        for (const id of prev.keys()) {
-          if (!curr.has(id)) await rcDeleteSucursal(id);
-        }
         prevSucRef.current = curr;
-        console.log("[rc-sync] configSucursales sincronizada (upsert/delete por ID)");
+        console.log("[rc-sync] configSucursales sincronizada (upsert por ID, sin borrado)");
       } catch (e) {
         console.error("[rc-sync] config save failed", e);
       }

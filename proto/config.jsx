@@ -36,8 +36,14 @@ const ConfigView = () => {
   };
 
   const confirmDeleteSuc = () => {
-    dispatch({ type: "CONFIG/DELETE_SUC", id: confirmModal.suc.id });
-    dispatch({ type: "TOAST/SHOW", toast: { kind: "success", title: "Sucursal eliminada", body: `"${confirmModal.suc.nombre}" fue eliminada.` } });
+    const { id, nombre } = confirmModal.suc;
+    dispatch({ type: "CONFIG/DELETE_SUC", id });
+    // Borrado explícito del usuario → sí se elimina en el server (el sync
+    // automático nunca borra; solo esta acción manual lo hace).
+    try {
+      Promise.resolve(rcDeleteSucursal(id)).catch(e => console.error("[rc-sync] delete suc failed", e));
+    } catch (e) { console.error("[rc-sync] delete suc failed", e); }
+    dispatch({ type: "TOAST/SHOW", toast: { kind: "success", title: "Sucursal eliminada", body: `"${nombre}" fue eliminada.` } });
     setConfirmModal(null);
   };
 
@@ -48,6 +54,9 @@ const ConfigView = () => {
         title="Sucursales configuradas"
         right={
           <>
+            <Btn kind="primary" icon="add" onClick={() => dispatch({ type: "CONFIG/ADD_SUC" })}>
+              Agregar sucursal
+            </Btn>
             <Btn icon="tune" onClick={() => dispatch({ type: "NAVIGATE", view: "onboarding" })}>
               Crear proyecto desde cero
             </Btn>

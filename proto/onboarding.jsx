@@ -79,8 +79,12 @@ const OB_ITEM_DEFS = {
 };
 
 // ---- Helpers ----
+// ID único global (no un contador por carga, que hacía colisionar "ob1" entre
+// usuarios/recargas y se pisaban al guardar por ID).
 let _obId = 0;
-const obUid = () => "ob" + (++_obId);
+const obUid = () =>
+  "ob_" + Date.now().toString(36) + "_" + (++_obId) +
+  Math.random().toString(36).slice(2, 6);
 const mkSuc = () => ({ id: obUid(), nombre: "", direccion: "" });
 
 const mkItemsForSuc = () => ({
