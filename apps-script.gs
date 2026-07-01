@@ -153,15 +153,15 @@ function doPost(e) {
       return jsonOut(notifyFotoPending(body));
     }
     if (action === "setMedidores") {
-      setSheetRows("Medidores", body.rows || []);
+      withLock(function () { setSheetRows("Medidores", body.rows || []); });
       return jsonOut({ ok: true });
     }
     if (action === "setLecturasMedidor") {
-      setSheetRows("Lecturas Medidor", body.rows || []);
+      withLock(function () { setSheetRows("Lecturas Medidor", body.rows || []); });
       return jsonOut({ ok: true });
     }
     if (action === "setPreciosMedidor") {
-      setSheetRows("Precios Medidor", body.rows || []);
+      withLock(function () { setSheetRows("Precios Medidor", body.rows || []); });
       return jsonOut({ ok: true });
     }
     return jsonOut({ error: "unknown action: " + action });
