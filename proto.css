@@ -91,7 +91,6 @@ html, body {
 
 /* Nav items */
 .rc-sidebar-nav { display: flex; flex-direction: column; gap: 2px; padding: 10px 8px; flex: 1; overflow-y: auto; }
-.rc-sidebar-foot { padding: 10px 8px; border-top: 1px solid var(--rl-gray-100); }
 
 .rc-sidebar-item {
   all: unset; cursor: pointer; position: relative;
@@ -111,6 +110,9 @@ html, body {
 /* Collapsed: hide labels, center icons */
 .rc-sidebar.collapsed .rc-sidebar-item { justify-content: center; padding: 10px 8px; }
 .rc-sidebar.collapsed .rc-sidebar-item-label { display: none; }
+/* Colapsada: sin scroll (el tooltip ::after sale a la derecha y, con overflow-y:auto,
+   generaba scroll lateral). overflow visible deja escapar el tooltip sin scrollbar. */
+.rc-sidebar.collapsed .rc-sidebar-nav { overflow: visible; }
 
 /* Tooltip on hover when collapsed */
 .rc-sidebar.collapsed .rc-sidebar-item::after {

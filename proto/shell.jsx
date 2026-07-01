@@ -414,17 +414,6 @@ const Sidebar = ({ collapsed, onToggle }) => {
           );
         })}
       </nav>
-
-      <div className="rc-sidebar-foot">
-        <button
-          className="rc-sidebar-item rc-sidebar-reset"
-          onClick={() => window.location.reload()}
-          data-tooltip="Reiniciar prototipo"
-        >
-          <span className="rc-sidebar-item-ico"><Icon name="refresh" size={18} /></span>
-          <span className="rc-sidebar-item-label">Reset</span>
-        </button>
-      </div>
     </aside>
   );
 };
