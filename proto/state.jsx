@@ -113,13 +113,14 @@ function seedMedidores() {
   return {
     selSucursal: "",            // nombre de sucursal activa seleccionada
     selType: "",                // electricidad | combustible | agua
-    tab: "matriz",              // matriz | mensual | pagos
+    tab: "resumen",             // resumen | matriz | mensual | pagos
     period: "3m",               // 12m | 6m | 3m | 1m | custom:YYYY-MM:YYYY-MM
     mensualMonth: CURRENT_MONTH_KEY,
     meters: [],                 // { id, sucursal, type, nombre, numero, activo }
     readings: [],               // { id, meterId, month:"YYYY-MM", lectura:number }
     prices: [],                 // { sucursal, type, month:"YYYY-MM", precio:number }
     docs: {},                   // { [meterId+"__"+month]: { factura:{link,fileId,name}, pago:{...} } }
+    loading: true,              // true hasta que el bootstrap termina de cargar del Sheet
   };
 }
 
@@ -714,6 +715,8 @@ function reducer(state, action) {
       const docs = { ...state.medidores.docs, [key]: cur };
       return { ...state, medidores: { ...state.medidores, docs } };
     }
+    case "MED/SET_LOADING":
+      return { ...state, medidores: { ...state.medidores, loading: !!action.loading } };
     case "MED/LOAD": {
       // Adelanta los contadores para no recrear ids ya usados al guardar de nuevo.
       (action.meters || []).forEach(m => {
@@ -732,6 +735,7 @@ function reducer(state, action) {
           readings: action.readings || [],
           prices:   action.prices   || [],
           docs:     action.docs     || {},
+          loading:  false,
         },
       };
     }

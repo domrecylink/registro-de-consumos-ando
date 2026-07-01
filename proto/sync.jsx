@@ -409,9 +409,11 @@ function rcUnflattenMedLecturas(rows) {
   (rows || []).forEach(r => {
     const id = r[0] || "", meterId = r[1] || "", month = r[2] || "";
     if (!meterId || !month) return;
+    // El Sheet devuelve display values (decimal con coma, ej "15771,848").
+    // rcNum normaliza coma/miles → número. Solo omitimos celdas vacías.
     const lectura = r[3];
-    if (lectura !== "" && lectura != null && !isNaN(lectura)) {
-      readings.push({ id: id || ("lec_" + meterId + "_" + month), meterId, month, lectura: Number(lectura) });
+    if (lectura !== "" && lectura != null) {
+      readings.push({ id: id || ("lec_" + meterId + "_" + month), meterId, month, lectura: rcNum(lectura) });
     }
     const fLink = r[4] || "", fName = r[5] || "", fId = r[6] || "";
     const pLink = r[7] || "", pName = r[8] || "", pId = r[9] || "";
@@ -431,7 +433,7 @@ function rcFlattenMedPrecios(prices) {
 }
 function rcUnflattenMedPrecios(rows) {
   return (rows || []).filter(r => r[0] && r[2]).map(r => ({
-    sucursal: r[0], type: r[1] || "", month: r[2], precio: Number(r[3]) || 0,
+    sucursal: r[0], type: r[1] || "", month: r[2], precio: rcNum(r[3]),
   }));
 }
 
@@ -1070,6 +1072,8 @@ const SyncBootstrap = () => {
       if (!rcEndpointConfigured()) {
         console.warn("[rc-sync] APPS_SCRIPT_URL no está configurada — el dashboard quedará vacío.");
         window.__rcConfigBootstrapped = true;
+        const { dispatch } = window.__rcStoreRef || {};
+        if (dispatch) dispatch({ type: "MED/SET_LOADING", loading: false });
         return;
       }
       // 1) Registros (comportamiento anterior)
@@ -1129,6 +1133,9 @@ const SyncBootstrap = () => {
         }
       } catch (e) {
         console.warn("[rc-sync] medidores load failed", e);
+      } finally {
+        const { dispatch } = window.__rcStoreRef || {};
+        if (dispatch) dispatch({ type: "MED/SET_LOADING", loading: false });
       }
       window.__rcMedidoresBootstrapped = true;
     }

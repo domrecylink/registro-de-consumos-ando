@@ -20,6 +20,10 @@ const MED_PERIOD_OPTS = [
   { value: "custom", label: "Personalizado" },
 ];
 
+// Paleta de líneas por medidor (misma del diseño de referencia).
+const MED_LINE_COLORS = ["#0069A6", "#12B76A", "#F79009", "#7A5AF8", "#EF4444", "#0E9384", "#D444F1", "#EAAA08"];
+const medColorAt = (i) => MED_LINE_COLORS[((i % MED_LINE_COLORS.length) + MED_LINE_COLORS.length) % MED_LINE_COLORS.length];
+
 const monthSelectOpts = () => months.map(mk => ({ value: mk, label: monthLabelShort(mk) }));
 // Desc: mes actual arriba (para el selector de Mensual).
 const monthSelectOptsDesc = () => months.slice().reverse().map(mk => ({ value: mk, label: monthLabelShort(mk) }));
@@ -35,6 +39,7 @@ function metersFor(M, suc, type, includeInactive) {
 // ============================================================
 const MedTabs = ({ value, onChange }) => {
   const tabs = [
+    { id: "resumen", label: "Resumen", icon: "dashboard" },
     { id: "matriz",  label: "Matriz",  icon: "table_view" },
     { id: "mensual", label: "Mensual", icon: "calendar_today" },
     { id: "pagos",   label: "Pagos",   icon: "payments" },
@@ -189,6 +194,168 @@ const MedPriceInput = ({ suc, type, month, compact }) => {
       />
       {price != null && !exact && (
         <span className="rc-med-price-inh" title="Heredado de un mes anterior"><Icon name="info" size={12} /></span>
+      )}
+    </div>
+  );
+};
+
+// ============================================================
+// Gráfico de líneas suavizadas — consumo por medidor × mes
+// ============================================================
+const MedResumenChart = ({ series, monthsView, unit }) => {
+  const W = 720, H = 280, padL = 56, padR = 16, padT = 16, padB = 34;
+  const n = monthsView.length;
+  const all = series.flatMap(s => s.vals).filter(v => v != null);
+  const maxV = all.length ? Math.max(...all) : 0;
+  const top = maxV > 0 ? maxV * 1.15 : 10;
+  const x = i => padL + (n <= 1 ? (W - padL - padR) / 2 : (i * (W - padL - padR)) / (n - 1));
+  const y = v => padT + (1 - v / top) * (H - padT - padB);
+  const grid = [0, 0.25, 0.5, 0.75, 1];
+
+  if (!series.length || !all.length) {
+    return <div className="prt-muted" style={{ padding: "40px 0", textAlign: "center" }}>Sin consumo calculado para graficar. Carga lecturas en al menos dos meses.</div>;
+  }
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: "block", overflow: "visible" }}>
+      {grid.map((g, i) => {
+        const gy = padT + g * (H - padT - padB);
+        return (
+          <g key={i}>
+            <line x1={padL} y1={gy} x2={W - padR} y2={gy} stroke={i === grid.length - 1 ? "var(--rl-gray-200)" : "var(--rl-gray-100)"} strokeWidth="1" />
+            <text x={padL - 8} y={gy + 3} textAnchor="end" fontSize="10" fill="var(--rl-gray-400)" fontFamily="var(--rl-font-body)">{fmtNum(top * (1 - g))}</text>
+          </g>
+        );
+      })}
+      {monthsView.map((mk, i) => (
+        <text key={mk} x={x(i)} y={H - 10} textAnchor="middle" fontSize="11" fontWeight="600" fill="var(--rl-gray-600)" fontFamily="var(--rl-font-body)">{monthLabelShort(mk)}</text>
+      ))}
+      {series.map(s => {
+        const pts = s.vals.map((v, i) => (v == null ? null : [x(i), y(v)])).filter(Boolean);
+        const d = (typeof smoothPath === "function") ? smoothPath(pts) : pts.map((p, i) => (i ? "L" : "M") + p[0] + "," + p[1]).join(" ");
+        return (
+          <g key={s.meter.id}>
+            <path d={d} fill="none" stroke={s.color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+            {pts.map((p, i) => <circle key={i} cx={p[0]} cy={p[1]} r="3.5" fill="#fff" stroke={s.color} strokeWidth="2" />)}
+          </g>
+        );
+      })}
+    </svg>
+  );
+};
+
+// Dropdown multi-select de medidores (el Select del proyecto es single).
+const MedMeterPicker = ({ meters, selected, onToggle, onAll, onNone, colorOf }) => {
+  const [open, setOpen] = React.useState(false);
+  const ref = React.useRef(null);
+  React.useEffect(() => {
+    if (!open) return;
+    const onDoc = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const onKey = (e) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("mousedown", onDoc); document.removeEventListener("keydown", onKey); };
+  }, [open]);
+  const count = selected.size;
+  return (
+    <div ref={ref} className="rc-med-picker">
+      <button className="rc-med-picker-trigger" onClick={() => setOpen(o => !o)} aria-expanded={open}>
+        <Icon name="speed" size={15} />
+        <span className="rc-med-picker-txt">{count === 0 ? "Selecciona medidores" : count + " medidor" + (count === 1 ? "" : "es")}</span>
+        <Icon name="expand_more" size={16} />
+      </button>
+      {open && (
+        <div className="rc-med-picker-menu" role="listbox">
+          <div className="rc-med-picker-actions">
+            <button onClick={onAll}>Todos</button>
+            <button onClick={onNone}>Ninguno</button>
+          </div>
+          {meters.length === 0 && <div className="prt-muted" style={{ padding: "8px 10px", fontSize: 13 }}>Sin medidores.</div>}
+          {meters.map(m => {
+            const on = selected.has(m.id);
+            return (
+              <button key={m.id} role="option" aria-selected={on} className={"rc-med-picker-item" + (on ? " on" : "")} onClick={() => onToggle(m.id)}>
+                <span className="chk">{on && <Icon name="check" size={13} />}</span>
+                <span className="dot" style={{ background: colorOf(m) }} />
+                <span className="lbl">{m.nombre}{m.numero ? " · N° " + m.numero : ""}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ============================================================
+// Tab: Resumen (dashboard) — KPIs + gráfico + descarga de reporte
+// ============================================================
+const ResumenTab = ({ suc, type, meters, monthsView }) => {
+  const { state } = useApp();
+  const M = state.medidores;
+  const unit = medUnit(type);
+  // Selección vacía por defecto — el usuario elige en el dropdown.
+  const [selected, setSelected] = React.useState(() => new Set());
+  const toggle = (id) => setSelected(s => { const nx = new Set(s); nx.has(id) ? nx.delete(id) : nx.add(id); return nx; });
+  const selectAll = () => setSelected(new Set(meters.map(m => m.id)));
+  const selectNone = () => setSelected(new Set());
+
+  const colorOf = (m) => medColorAt(meters.findIndex(x => x.id === m.id));
+  const shown = meters.filter(m => selected.has(m.id));
+  const series = shown.map(m => ({ meter: m, color: colorOf(m), vals: monthsView.map(mk => consumoFor(M.readings, m.id, mk)) }));
+  const hasSel = shown.length > 0;
+
+  const lastMonth = monthsView[monthsView.length - 1];
+  const sum = (fn) => shown.reduce((acc, m) => { const v = fn(m); return acc + (v == null ? 0 : v); }, 0);
+  const totalPeriodo = shown.reduce((acc, m) => acc + monthsView.reduce((a, mk) => { const c = consumoFor(M.readings, m.id, mk); return a + (c == null ? 0 : c); }, 0), 0);
+  const consumoUlt = sum(m => consumoFor(M.readings, m.id, lastMonth));
+  const costoUlt = sum(m => costoFor(M.readings, M.prices, m, lastMonth));
+
+  return (
+    <div className="rc-med-resumen">
+      <div className="rc-med-resumen-bar">
+        <MedMeterPicker meters={meters} selected={selected} onToggle={toggle} onAll={selectAll} onNone={selectNone} colorOf={colorOf} />
+        <Btn icon="file_download" disabled={!hasSel} onClick={() => medDownloadReport({ suc, type, meters: shown, M, records: state.records })}>Descargar reporte</Btn>
+      </div>
+
+      {!hasSel ? (
+        <EmptyState icon="dashboard" title="Selecciona medidores"
+          body="Elige uno o más medidores en el desplegable para ver KPIs y el gráfico de consumo." />
+      ) : (
+        <>
+          <div className="rc-med-kpis">
+            <div className="rc-med-kpi primary">
+              <div className="rc-med-kpi-label">Consumo total del período</div>
+              <div className="rc-med-kpi-val">{fmtNum(totalPeriodo)}<span className="rc-med-kpi-unit">{unit}</span></div>
+              <div className="rc-med-kpi-sub">{periodLabel(M.period)}</div>
+            </div>
+            <div className="rc-med-kpi">
+              <div className="rc-med-kpi-label">Consumo último mes</div>
+              <div className="rc-med-kpi-val">{fmtNum(consumoUlt)}<span className="rc-med-kpi-unit">{unit}</span></div>
+              <div className="rc-med-kpi-sub">{lastMonth ? monthLabelShort(lastMonth) : "—"}</div>
+            </div>
+            <div className="rc-med-kpi">
+              <div className="rc-med-kpi-label">Costo último mes</div>
+              <div className="rc-med-kpi-val">{fmtCLP(costoUlt)}</div>
+              <div className="rc-med-kpi-sub">{lastMonth ? monthLabelShort(lastMonth) : "—"}</div>
+            </div>
+          </div>
+
+          <Card>
+            <div className="rc-med-chart-head">
+              <div className="rc-med-chart-title">Consumo mensual por medidor <span>({unit})</span></div>
+              <div className="rc-med-chart-legend">
+                {series.map(s => (
+                  <span key={s.meter.id} className="rc-med-legend-item">
+                    <span className="rc-med-legend-line" style={{ background: s.color }} />
+                    {s.meter.nombre}{s.meter.numero ? " · N° " + s.meter.numero : ""}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <MedResumenChart series={series} monthsView={monthsView} unit={unit} />
+          </Card>
+        </>
       )}
     </div>
   );
@@ -595,18 +762,15 @@ const MedToolbar = () => {
                 options={MED_PERIOD_OPTS} onChange={setPeriodSel} />
               {isCustom && (
                 <>
-                  <Select size="sm" value={custom.start} style={{ minWidth: 108 }} options={monthSelectOpts()} onChange={v => setCustom("start", v)} />
+                  <Select size="sm" value={custom.start} style={{ minWidth: 108 }} options={monthSelectOptsDesc()} onChange={v => setCustom("start", v)} />
                   <span className="rc-med-tb-label">—</span>
-                  <Select size="sm" value={custom.end} style={{ minWidth: 108 }} options={monthSelectOpts()} onChange={v => setCustom("end", v)} />
+                  <Select size="sm" value={custom.end} style={{ minWidth: 108 }} options={monthSelectOptsDesc()} onChange={v => setCustom("end", v)} />
                 </>
               )}
             </>
           )}
         </div>
       </div>
-
-      {/* Derecha: tabs */}
-      <MedTabs value={M.tab} onChange={t => dispatch({ type: "MED/SET_TAB", tab: t })} />
     </div>
   );
 };
@@ -679,6 +843,176 @@ function medExportExcel(M, records, dispatch) {
 }
 
 // ============================================================
+// Descargable "Estado de medidores" — reporte HTML (print → PDF)
+// Usa el período seleccionado en el toolbar. Inspirado en el diseño de referencia.
+// ============================================================
+function medDownloadReport({ suc, type, meters, M, records }) {
+  const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const unit = medUnit(type);
+  const typeLbl = MED_TYPES[type] ? MED_TYPES[type].label : type;
+  const typeIcon = { electricidad: '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>', agua: '<path d="M12 2.69 5.64 9.06a9 9 0 1 0 12.72 0L12 2.69z"></path>', combustible: '<path d="M3 22h12V4a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v18z"></path><line x1="3" y1="10" x2="15" y2="10"></line>' }[type] || "";
+  const rep = periodToMonthKeys(M.period);               // respeta el período seleccionado (incl. personalizado)
+  const last = rep[rep.length - 1];
+  const perLbl = rep.length ? (monthLabelShort(rep[0]) + " – " + monthLabelShort(last)) : "—";
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  const fechaCorta = pad(now.getDate()) + "/" + pad(now.getMonth() + 1) + "/" + now.getFullYear();
+  const fechaLarga = now.toLocaleDateString("es-CL", { day: "2-digit", month: "long", year: "numeric" }) + " · " + pad(now.getHours()) + ":" + pad(now.getMinutes()) + " hrs";
+
+  // Datos por medidor
+  const rows = meters.map((m, i) => ({
+    m, color: medColorAt(i),
+    cells: rep.map(mk => ({
+      lect: meterReadingFor(M.readings, m.id, mk),
+      cons: consumoFor(M.readings, m.id, mk),
+      costo: costoFor(M.readings, M.prices, m, mk),
+      pay: payStatus(M.docs, m.id, mk),
+    })),
+  }));
+  // Totales por mes
+  const totCons = rep.map((mk, ci) => rows.reduce((a, r) => a + (r.cells[ci].cons == null ? 0 : r.cells[ci].cons), 0));
+  const totCosto = rep.map((mk, ci) => rows.reduce((a, r) => a + (r.cells[ci].costo == null ? 0 : r.cells[ci].costo), 0));
+  const anyCons = rep.map((mk, ci) => rows.some(r => r.cells[ci].cons != null));
+  const consUlt = totCons[totCons.length - 1] || 0;
+  const consPrev = totCons.length > 1 ? totCons[totCons.length - 2] : 0;
+  const costoUlt = totCosto[totCosto.length - 1] || 0;
+  const acumulado = totCosto.reduce((a, b) => a + b, 0);
+  const consValidos = totCons.filter((v, i) => anyCons[i]);
+  const promedio = consValidos.length ? consValidos.reduce((a, b) => a + b, 0) / consValidos.length : 0;
+  const varPct = consPrev > 0 ? ((consUlt - consPrev) / consPrev) * 100 : null;
+  const boletaTotal = rep.reduce((a, mk) => { const b = boletaFor(records, suc, type, mk); return a + (b == null ? 0 : b); }, 0);
+  const totalPeriodo = acumulado;
+  const dif = boletaTotal > 0 ? (totalPeriodo - boletaTotal) : null;
+  const difPct = (dif != null && boletaTotal > 0) ? (dif / boletaTotal) * 100 : null;
+
+  // Gráfico
+  const W = 720, H = 250, padL = 60, padR = 30, padT = 18, padB = 38;
+  const n = rep.length;
+  const allV = rows.flatMap(r => r.cells.map(c => c.cons)).filter(v => v != null);
+  const top = allV.length && Math.max(...allV) > 0 ? Math.max(...allV) * 1.15 : 10;
+  const X = i => padL + (n <= 1 ? (W - padL - padR) / 2 : (i * (W - padL - padR)) / (n - 1));
+  const Y = v => padT + (1 - v / top) * (H - padT - padB);
+  const gridY = [0, 0.25, 0.5, 0.75, 1];
+  const chartLines = rows.map(r => {
+    const pts = r.cells.map((c, i) => (c.cons == null ? null : [X(i), Y(c.cons)])).filter(Boolean);
+    if (!pts.length) return "";
+    const d = (typeof smoothPath === "function") ? smoothPath(pts) : pts.map((p, i) => (i ? "L" : "M") + p[0] + "," + p[1]).join(" ");
+    const dots = pts.map(p => `<circle cx="${p[0]}" cy="${p[1].toFixed(1)}" r="3.5" fill="#fff" stroke="${r.color}" stroke-width="2"></circle>`).join("");
+    return `<path d="${d}" fill="none" stroke="${r.color}" stroke-width="2.5" stroke-linecap="round"></path>${dots}`;
+  }).join("");
+  const gridSvg = gridY.map(g => { const gy = padT + g * (H - padT - padB); return `<line x1="${padL}" y1="${gy}" x2="${W - padR}" y2="${gy}" stroke="${g === 1 ? "#E4E7EC" : "#F2F4F7"}"></line><text x="${padL - 8}" y="${gy + 3}" text-anchor="end" font-size="10" fill="#919599">${fmtNum(top * (1 - g))}</text>`; }).join("");
+  const xSvg = rep.map((mk, i) => `<text x="${X(i)}" y="${H - 12}" text-anchor="middle" font-size="11" font-weight="600" fill="#475467">${monthLabelShort(mk)}</text>`).join("");
+  const legend = rows.map(r => `<span style="display:inline-flex;align-items:center;gap:7px;"><span style="width:16px;height:3px;border-radius:2px;background:${r.color};display:inline-block;"></span>${esc(r.m.nombre)}${r.m.numero ? " · N° " + esc(r.m.numero) : ""}</span>`).join("");
+
+  const payChip = (st) => {
+    const S = { pagado: ["#ECFDF3", "#027A48", "#12B76A", "Pagado"], facturado: ["#E6F4FB", "#0069A6", "#0069A6", "Facturado"], "por-facturar": ["#FFFAEB", "#B54708", "#F79009", "Por facturar"] }[st];
+    return `<span style="display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:10px;font-weight:600;background:${S[0]};color:${S[1]};"><span style="width:6px;height:6px;border-radius:999px;background:${S[2]};"></span>${S[3]}</span>`;
+  };
+  const money = (v) => v == null ? "—" : fmtCLP(v);
+  const num = (v) => v == null ? "—" : fmtNum(v);
+
+  const th = (label, extra) => `<th colspan="3" style="text-align:center;padding:6px 8px;font-size:10.5px;font-weight:700;color:#0069A6;background:#E6F4FB;border-left:1px solid #E4E7EC;">${label}</th>`;
+  const subTh = () => `<th style="text-align:right;padding:6px 8px;font-size:9.5px;font-weight:600;color:#727272;border-bottom:2px solid #0069A6;border-left:1px solid #E4E7EC;">Lectura</th><th style="text-align:right;padding:6px 8px;font-size:9.5px;font-weight:600;color:#727272;border-bottom:2px solid #0069A6;">Consumo</th><th style="text-align:right;padding:6px 8px;font-size:9.5px;font-weight:600;color:#727272;border-bottom:2px solid #0069A6;">Costo</th>`;
+
+  const detBody = rows.map(r => `<tr>
+    <td style="text-align:left;padding:9px 10px;border-bottom:1px solid #EEE;"><span style="font-weight:700;color:#101828;">${esc(r.m.nombre)}</span>${r.m.numero ? ` <span style="color:#919599;">· N° ${esc(r.m.numero)}</span>` : ""}</td>
+    ${r.cells.map(c => `<td style="text-align:right;padding:9px 8px;border-bottom:1px solid #EEE;color:#667085;border-left:1px solid #E4E7EC;">${num(c.lect)}</td><td style="text-align:right;padding:9px 8px;border-bottom:1px solid #EEE;font-weight:600;color:#101828;">${num(c.cons)}</td><td style="text-align:right;padding:9px 8px;border-bottom:1px solid #EEE;color:#344054;">${money(c.costo)}</td>`).join("")}
+  </tr>`).join("");
+  const detTot = `<tr style="background:#F9FAFB;"><td style="text-align:left;padding:10px;font-weight:700;color:#101828;border-top:2px solid #0069A6;">Totales</td>${rep.map((mk, ci) => `<td style="text-align:right;padding:10px 8px;color:#919599;border-top:2px solid #0069A6;border-left:1px solid #E4E7EC;">—</td><td style="text-align:right;padding:10px 8px;font-weight:700;color:#0069A6;border-top:2px solid #0069A6;">${anyCons[ci] ? fmtNum(totCons[ci]) : "—"}</td><td style="text-align:right;padding:10px 8px;font-weight:700;color:#101828;border-top:2px solid #0069A6;">${fmtCLP(totCosto[ci])}</td>`).join("")}</tr>`;
+
+  const payHead = rep.map(mk => `<th style="text-align:center;padding:8px;font-size:10.5px;font-weight:700;color:#344054;border-bottom:1px solid #E4E7EC;">${monthLabelShort(mk)}</th>`).join("");
+  const payBody = rows.map(r => `<tr><td style="text-align:left;padding:9px 10px;border-bottom:1px solid #EEE;font-weight:700;color:#101828;">${esc(r.m.nombre)}${r.m.numero ? ` <span style="color:#919599;font-weight:400;">· N° ${esc(r.m.numero)}</span>` : ""}</td>${r.cells.map(c => `<td style="text-align:center;padding:9px 8px;border-bottom:1px solid #EEE;">${payChip(c.pay)}</td>`).join("")}</tr>`).join("");
+
+  const difChip = dif == null
+    ? `<span style="font-size:13px;font-weight:700;color:#919599;">Sin boleta registrada</span>`
+    : `<span style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:999px;font-size:13px;font-weight:700;background:${dif < 0 ? "#FEF3F2" : "#ECFDF3"};color:${dif < 0 ? "#B42318" : "#027A48"};">${dif > 0 ? "+" : ""}${fmtCLP(dif)}${difPct != null ? " · " + (difPct > 0 ? "+" : "") + difPct.toFixed(2).replace(".", ",") + "%" : ""}</span>`;
+
+  const html = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Estado de medidores · ${esc(suc)}</title>
+<style>
+  :root{--rl-font-display:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;--rl-font-body:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;}
+  *{box-sizing:border-box;} body{margin:0;background:#ece8dd;font-family:var(--rl-font-body);color:#313334;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  .page{width:794px;min-height:1123px;max-width:100%;margin:20px auto;background:#fff;border-radius:6px;padding:30px 34px;box-shadow:0 8px 40px rgba(0,0,0,.12);}
+  h1{font:700 24px/30px var(--rl-font-display);letter-spacing:-.02em;color:#101828;margin:0;}
+  .btnbar{width:794px;max-width:100%;margin:16px auto 0;display:flex;gap:8px;justify-content:flex-end;}
+  .btnbar button{font:600 13px var(--rl-font-display);border:none;border-radius:8px;padding:9px 16px;cursor:pointer;background:#0069A6;color:#fff;}
+  .btnbar button.ghost{background:#fff;color:#0069A6;border:1px solid #0069A6;}
+  .btnbar button[disabled]{opacity:.5;cursor:default;}
+  table{width:100%;border-collapse:collapse;}
+  @page{size:A4 portrait;margin:0;}
+  @media print{ body{background:#fff;} .page{box-shadow:none;margin:0;width:210mm;min-height:auto;border-radius:0;} .noprint{display:none!important;} }
+</style></head><body>
+<div class="btnbar noprint"><button class="ghost" onclick="window.print()">Imprimir</button><button id="dlbtn" disabled onclick="dlPDF()">Cargando…</button></div>
+<div class="page">
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:24px;">
+    <div>
+      <h1>Estado de medidores</h1>
+    </div>
+    <div style="display:inline-flex;align-items:center;gap:8px;background:#E6F4FB;color:#0069A6;border-radius:999px;padding:8px 16px;font-weight:700;font-size:13px;white-space:nowrap;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${typeIcon}</svg>${esc(typeLbl)}
+    </div>
+  </div>
+  <div style="display:flex;margin-top:12px;border:1px solid #E4E7EC;border-radius:10px;overflow:hidden;background:#F9FAFB;">
+    ${[["Tipo de consumo", esc(typeLbl)], ["Periodo del reporte", perLbl], ["Medidores", meters.length + " seleccionado" + (meters.length === 1 ? "" : "s")], ["Fecha de generación", fechaCorta]].map((c, i) => `${i ? '<div style="width:1px;background:#E4E7EC;"></div>' : ""}<div style="flex:1;padding:12px 16px;"><div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#919599;font-weight:700;">${c[0]}</div><div style="font-size:13px;font-weight:600;color:#101828;margin-top:3px;">${c[1]}</div></div>`).join("")}
+  </div>
+  <div style="display:flex;gap:10px;margin-top:14px;">
+    <div style="flex:1.3;background:#0069A6;color:#fff;border-radius:10px;padding:15px 16px;"><div style="font-size:11px;font-weight:600;color:rgba(255,255,255,.82);">Consumo último mes</div><div style="font:700 27px/1.1 var(--rl-font-display);margin-top:9px;">${fmtNum(consUlt)}<span style="font-size:14px;font-weight:600;margin-left:4px;">${unit}</span></div><div style="font-size:11px;color:rgba(255,255,255,.82);margin-top:6px;">${last ? monthLabelShort(last) : "—"}</div></div>
+    <div style="flex:1;background:#fff;border:1px solid #E4E7EC;border-radius:10px;padding:15px 16px;"><div style="font-size:11px;font-weight:600;color:#727272;">Costo último mes</div><div style="font:700 21px/1.1 var(--rl-font-display);color:#101828;margin-top:9px;">${fmtCLP(costoUlt)}</div><div style="font-size:11px;color:#919599;margin-top:6px;">${last ? monthLabelShort(last) : "—"}</div></div>
+    <div style="flex:1;background:#fff;border:1px solid #E4E7EC;border-radius:10px;padding:15px 16px;"><div style="font-size:11px;font-weight:600;color:#727272;">Promedio mensual</div><div style="font:700 21px/1.1 var(--rl-font-display);color:#101828;margin-top:9px;">${fmtNum(promedio)}<span style="font-size:12px;font-weight:600;margin-left:3px;">${unit}</span></div><div style="font-size:11px;color:#919599;margin-top:6px;">Consumo · ${perLbl}</div></div>
+    <div style="flex:1;background:#fff;border:1px solid #E4E7EC;border-radius:10px;padding:15px 16px;"><div style="font-size:11px;font-weight:600;color:#727272;">Costo acumulado</div><div style="font:700 21px/1.1 var(--rl-font-display);color:#101828;margin-top:9px;">${fmtCLP(acumulado)}</div><div style="font-size:11px;color:#919599;margin-top:6px;">Total del periodo</div></div>
+    <div style="flex:1;background:#fff;border:1px solid #E4E7EC;border-radius:10px;padding:15px 16px;"><div style="font-size:11px;font-weight:600;color:#727272;">Variación vs mes ant.</div><div style="font:700 21px/1.1 var(--rl-font-display);color:${varPct == null ? "#919599" : varPct > 0 ? "#B54708" : "#027A48"};margin-top:9px;">${varPct == null ? "—" : (varPct > 0 ? "+" : "") + varPct.toFixed(2).replace(".", ",") + "%"}</div><div style="font-size:11px;color:#919599;margin-top:6px;">Consumo mensual</div></div>
+  </div>
+  <div style="margin-top:16px;background:#fff;border:1px solid #E4E7EC;border-radius:10px;padding:16px 20px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+      <div style="font:600 15px/1.3 var(--rl-font-display);color:#101828;">Consumo mensual por medidor <span style="font-weight:500;color:#919599;">(${unit})</span></div>
+      <div style="display:flex;gap:18px;flex-wrap:wrap;font-size:11.5px;font-weight:600;color:#475467;">${legend}</div>
+    </div>
+    <svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;margin-top:10px;overflow:visible;">${gridSvg}${xSvg}${chartLines}</svg>
+  </div>
+  <div style="margin-top:16px;">
+    <div style="font:600 15px/1.3 var(--rl-font-display);color:#101828;margin-bottom:9px;">Detalle por medidor</div>
+    <table style="font-size:10.5px;"><thead>
+      <tr><th rowspan="2" style="text-align:left;vertical-align:bottom;padding:8px 10px;font-size:11px;font-weight:700;color:#344054;border-bottom:2px solid #0069A6;">Medidor</th>${rep.map(mk => th(monthLabelShort(mk))).join("")}</tr>
+      <tr>${rep.map(() => subTh()).join("")}</tr>
+    </thead><tbody>${detBody}${detTot}</tbody></table>
+    <div style="font-size:10px;color:#919599;margin-top:8px;">Lectura y consumo en ${unit} · Costos en pesos chilenos (CLP).</div>
+  </div>
+  <div style="margin-top:16px;">
+    <div style="font:600 15px/1.3 var(--rl-font-display);color:#101828;margin-bottom:9px;">Estado de pagos</div>
+    <table style="font-size:10.5px;"><thead><tr><th style="text-align:left;padding:8px 10px;font-size:11px;font-weight:700;color:#344054;border-bottom:1px solid #E4E7EC;">Medidor</th>${payHead}</tr></thead><tbody>${payBody}</tbody></table>
+  </div>
+  <div style="border-top:1px solid #E4E7EC;padding-top:8px;margin-top:14px;display:flex;justify-content:space-between;font-size:10px;color:#919599;"><span>Documento generado automáticamente por Recylink Labs · Módulo de Medidores</span><span>Generado el ${fechaLarga}</span></div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script>
+  var _btn = document.getElementById('dlbtn');
+  function _ready(){ return window.html2canvas && window.jspdf && window.jspdf.jsPDF; }
+  (function wait(){ if(_ready()){ _btn.disabled=false; _btn.textContent='Descargar PDF'; } else setTimeout(wait,150); })();
+  function dlPDF(){
+    if(!_ready()){ alert('Aún cargando la librería, reintenta en un segundo.'); return; }
+    var el=document.querySelector('.page');
+    _btn.disabled=true; _btn.textContent='Generando…';
+    html2canvas(el,{scale:2,backgroundColor:'#ffffff'}).then(function(canvas){
+      var pdf=new window.jspdf.jsPDF('p','mm','a4');
+      var pw=pdf.internal.pageSize.getWidth(), ph=pdf.internal.pageSize.getHeight();
+      var iw=pw, ih=canvas.height*pw/canvas.width, x=0, y=0;
+      if(ih>ph){ ih=ph; iw=canvas.width*ph/canvas.height; x=(pw-iw)/2; }
+      pdf.addImage(canvas.toDataURL('image/jpeg',0.95),'JPEG',x,y,iw,ih);
+      pdf.save('Estado-de-medidores.pdf');
+      _btn.disabled=false; _btn.textContent='Descargar PDF';
+    }).catch(function(e){ alert('Error generando PDF: '+e); _btn.disabled=false; _btn.textContent='Descargar PDF'; });
+  }
+</script>
+</body></html>`;
+
+  const w = window.open("", "_blank");
+  if (!w) { alert("Habilita las ventanas emergentes para descargar el reporte."); return; }
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
+}
+
+// ============================================================
 // Vista principal
 // ============================================================
 const MedidoresView = () => {
@@ -708,7 +1042,12 @@ const MedidoresView = () => {
         }
       />
 
-      {/* Toolbar unificado: filtros (izq) + tabs (der) */}
+      {/* Tabs en su propia fila (no comparten fila con los filtros) */}
+      <div className="rc-med-tabsrow">
+        <MedTabs value={M.tab} onChange={t => dispatch({ type: "MED/SET_TAB", tab: t })} />
+      </div>
+
+      {/* Filtros */}
       <MedToolbar />
 
       {sucNames.length === 0 ? (
@@ -720,6 +1059,8 @@ const MedidoresView = () => {
         />
       ) : !ready ? (
         <EmptyState icon="speed" title="Selecciona sucursal y tipo" body="Elige una sucursal y un tipo de consumo en la barra superior para ver y registrar sus medidores." />
+      ) : M.loading ? (
+        <div className="rc-med-loading"><span className="prt-spinner" /><span>Cargando medidores…</span></div>
       ) : meters.length === 0 ? (
         <EmptyState
           icon="speed"
@@ -729,11 +1070,12 @@ const MedidoresView = () => {
         />
       ) : (
         <div style={{ marginTop: 16 }}>
+          {M.tab === "resumen" && <ResumenTab suc={suc} type={type} meters={meters} monthsView={monthsView} />}
           {M.tab === "matriz"  && <MatrizTab  suc={suc} type={type} meters={meters} monthsView={monthsView} />}
           {M.tab === "mensual" && <MensualTab suc={suc} type={type} meters={meters} />}
           {M.tab === "pagos"   && <PagosTab   meters={meters} monthsView={monthsView} />}
 
-          {M.tab !== "mensual" && (
+          {(M.tab === "matriz" || M.tab === "pagos") && (
             <div className="prt-hint" style={{ fontSize: 12, marginTop: 12, display: "flex", gap: 6, alignItems: "center" }}>
               <Icon name="info" size={14} />
               Período: {periodLabel(M.period)}. El consumo del primer mes de cada medidor no se calcula (solo lectura inicial).
@@ -774,6 +1116,8 @@ const MedidoresMobileView = () => {
 
       {!ready ? (
         <EmptyState icon="speed" title="Elige sucursal, tipo y mes" body="Selecciona arriba para ver los medidores a registrar." />
+      ) : M.loading ? (
+        <div className="rc-med-loading"><span className="prt-spinner" /><span>Cargando medidores…</span></div>
       ) : meters.length === 0 ? (
         <EmptyState icon="speed" title="Sin medidores" body="No hay medidores activos para esta selección. Créalos desde la vista de escritorio." />
       ) : (
