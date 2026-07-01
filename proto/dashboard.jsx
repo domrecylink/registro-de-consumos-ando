@@ -139,7 +139,14 @@ function chartDataByMonthAndSubcat(state) {
     }
   }
 
-  return { mixed: false, months: monthKeys, series: buildSeries(subs), unit: type.unit };
+  // Subcat específica (o tipo no-combustible): una sola serie con la unidad
+  // que corresponde a esa subcat. Antes usaba `subs` (todas) + type.unit, lo
+  // que mezclaba líneas de otras subcats y mostraba la unidad por defecto.
+  const selSubs = subcat === "all" ? subs : subs.filter(s => s.id === subcat);
+  const unit = (typeTab === "combustible" && subcat !== "all")
+    ? unitOfSubcat("combustible", subcat)
+    : type.unit;
+  return { mixed: false, months: monthKeys, series: buildSeries(selSubs), unit };
 }
 
 // Heatmap data: row=sucursal, col=month, value=qty for active type+subcat+period.
@@ -173,7 +180,10 @@ function heatmapData(state) {
       return { mixed: true, blocks };
     }
   }
-  return { mixed: false, months: monthKeys, rows: buildRows(baseRecs) };
+  const unit = (typeTab === "combustible" && subcat !== "all")
+    ? unitOfSubcat("combustible", subcat)
+    : TYPES[typeTab].unit;
+  return { mixed: false, months: monthKeys, rows: buildRows(baseRecs), unit };
 }
 
 // ============================================================
@@ -1231,9 +1241,9 @@ const Dashboard = () => {
               <div className="prt-spread" style={{ marginBottom: 8 }}>
                 <div>
                   <div className="prt-h3">Tendencia por subcategoría</div>
-                  <div className="prt-hint">{tt.unit} / mes · {periodLabel(state.dashFilters.period)}</div>
+                  <div className="prt-hint">{chart.unit} / mes · {periodLabel(state.dashFilters.period)}</div>
                 </div>
-                <Chip>{tt.unit}</Chip>
+                <Chip>{chart.unit}</Chip>
               </div>
               <MultiLineChart months={chart.months} series={chart.series} unit={chart.unit} />
             </div>
@@ -1241,11 +1251,11 @@ const Dashboard = () => {
               <div className="prt-spread" style={{ marginBottom: 8 }}>
                 <div>
                   <div className="prt-h3">Consumo por sucursal</div>
-                  <div className="prt-hint">Suma · {tt.unit}</div>
+                  <div className="prt-hint">Suma · {heat.unit}</div>
                 </div>
                 <Chip>Heatmap</Chip>
               </div>
-              <Heatmap months={heat.months} rows={heat.rows} color={tt.color} unit={tt.unit} />
+              <Heatmap months={heat.months} rows={heat.rows} color={tt.color} unit={heat.unit} />
             </div>
           </div>
         )}
