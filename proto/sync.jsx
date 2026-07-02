@@ -1055,9 +1055,9 @@ function rcResolveSheetCell(id, field) {
   const kind = m[1];
   const row = parseInt(m[2], 10) + 2;
   const COLS = {
-    comb: { link: 1, cantidad: 3, costo: 4, subcat: 7, provider: 8, estado: 9,  sheet: RC_CONFIG.SHEETS.COMBUSTIBLE },
-    elec: { link: 1, cantidad: 4, costo: 5,             provider: 9, estado: 10, sheet: RC_CONFIG.SHEETS.ELECTRICIDAD },
-    agua: { link: 1, cantidad: 4, costo: 5, subcat: 10, provider: 9, estado: 11, sheet: RC_CONFIG.SHEETS.AGUA },
+    comb: { link: 1, date: 2, cantidad: 3, costo: 4, subcat: 7, provider: 8, estado: 9,  sheet: RC_CONFIG.SHEETS.COMBUSTIBLE },
+    elec: { link: 1, date: 3, cantidad: 4, costo: 5,             provider: 9, estado: 10, sheet: RC_CONFIG.SHEETS.ELECTRICIDAD },
+    agua: { link: 1, date: 3, cantidad: 4, costo: 5, subcat: 10, provider: 9, estado: 11, sheet: RC_CONFIG.SHEETS.AGUA },
   }[kind];
   if (!COLS || !COLS[field]) return null;
   return { sheet: COLS.sheet, row, col: COLS[field] };
@@ -1071,8 +1071,11 @@ async function rcHandleEdit(ev) {
     console.warn("[rc-sync] edit ignored — record not from sheets:", id, field);
     return;
   }
+  // La fecha viaja como ISO (YYYY-MM-DD) desde la UI; la escribimos en el
+  // mismo formato DD-MM-YY que usan los registros manuales (rcParseDate lo lee).
+  const outValue = field === "date" ? fmtDDMMYY(value) : value;
   try {
-    await rcApiPost({ action: "update", sheet: target.sheet, row: target.row, col: target.col, value });
+    await rcApiPost({ action: "update", sheet: target.sheet, row: target.row, col: target.col, value: outValue });
     console.log("[rc-sync] cell updated", target, "=", value);
     window.dispatchEvent(new CustomEvent("rc:edit-done", { detail: { ok: true } }));
   } catch (e) {

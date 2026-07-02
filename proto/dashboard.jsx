@@ -716,6 +716,17 @@ const RecentTable = () => {
       dispatch({ type: "DASH/EDIT_RECORD", id, patch: { provider: v } });
       try { window.dispatchEvent(new CustomEvent("rc:edit", { detail: { id, field: "provider", value: v } })); } catch(e) {}
       dispatch({ type: "TOAST/SHOW", toast: { kind: "success", title: "Proveedor actualizado", body: `${rec.sucursal} · ${TYPES[rec.type].label} · ${v || "—"}` } });
+    } else if (field === "date") {
+      const iso = String(value || "").slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(iso) || rec.date === iso) { setEditing(null); return; }
+      dispatch({ type: "DASH/EDIT_RECORD", id, patch: { date: iso } });
+      try { window.dispatchEvent(new CustomEvent("rc:edit", { detail: { id, field: "date", value: iso } })); } catch(e) {}
+      dispatch({ type: "TOAST/SHOW", toast: {
+        kind: "success",
+        title: "Fecha actualizada",
+        body: `${rec.sucursal} · ${TYPES[rec.type].label} · ${fmtDate(rec.date)} → ${fmtDate(iso)}`,
+        undoAction: () => dispatch({ type: "DASH/UNDO_EDIT" }),
+      }});
     }
     setEditing(null);
   };
@@ -812,7 +823,15 @@ const RecentTable = () => {
                   + (state.recentlyEdited === r.id ? " row-just-saved" : "")
                   + (isDel ? " row-deleted" : "")
                 }>
-                  <td className={isDel ? "td-del" : ""}>{fmtDate(r.date)}</td>
+                  <td
+                    className={(isDel ? "td-del" : "") + (editing && editing.id === r.id && editing.field === "date" ? " cell-edit" : "")}
+                    onClick={() => !isDel && startEdit(r.id, "date")}
+                    style={{ cursor: isDel ? "default" : "pointer" }}
+                  >
+                    {editing && editing.id === r.id && editing.field === "date"
+                      ? <DateEditCell defaultValue={r.date} onCommit={(v) => commitEdit(r.id, "date", v)} onCancel={() => setEditing(null)} />
+                      : fmtDate(r.date)}
+                  </td>
                   <td className={isDel ? "td-del" : ""}>{r.sucursal}</td>
                   <td><TypeIndicator type={r.type} withLabel /></td>
                   <td
@@ -1095,6 +1114,32 @@ const EditCell = ({ defaultValue, onCommit, onCancel, align }) => {
         font: "500 13px/1 var(--rl-font-body)",
         color: "var(--rl-gray-900)",
         textAlign: align || "left",
+      }}
+    />
+  );
+};
+
+// Editor inline de fecha (input date nativo → ISO YYYY-MM-DD). max = hoy.
+const DateEditCell = ({ defaultValue, onCommit, onCancel }) => {
+  const [v, setV] = React.useState(String(defaultValue || "").slice(0, 10));
+  return (
+    <input
+      type="date"
+      value={v}
+      autoFocus
+      max={todayISO()}
+      onChange={e => setV(e.target.value)}
+      onBlur={() => onCommit(v)}
+      onKeyDown={e => {
+        if (e.key === "Enter") onCommit(v);
+        if (e.key === "Escape") onCancel();
+      }}
+      style={{
+        width: "100%", height: 44,
+        border: "none", outline: "none", background: "transparent",
+        padding: "0 12px",
+        font: "500 13px/1 var(--rl-font-body)",
+        color: "var(--rl-gray-900)",
       }}
     />
   );
