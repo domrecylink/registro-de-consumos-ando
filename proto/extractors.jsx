@@ -131,12 +131,30 @@ function rcExtraerCGE(textBundle) {
   const linedTexto = textBundle.lined;
   const out = { numeroCliente: "", fecha: "", consumo: 0, costo: 0 };
 
-  // N° Cliente: línea con sólo dígitos justo antes de "Fecha de emisión".
-  // En el bundle "combined" perdimos saltos relevantes, así que buscamos en lined.
-  let mCli = linedTexto.match(/\n(\d{6,8})\s*\n\s*Fecha de emisi[oó]n/i);
+  // N° Cliente. La boleta CGE es de DOBLE COLUMNA y pdf.js agrupa el texto por
+  // coordenada Y, por lo que mezcla la columna izquierda con la derecha y rompe
+  // la adyacencia "6061042 \n Fecha de emisión" (que sí se da en pdfplumber).
+  // Estrategia en capas, de más a menos robusta:
+  //  1) Número (6-8 díg) seguido de una fecha "DD Mmm YYYY" → fila del cupón /
+  //     vencimiento ("6061042 08 Jun 2026"). Misma fila visual → sobrevive al
+  //     reordenamiento por columnas.
+  //  2) Adyacencia a "Fecha de emisión" (layout tipo pdfplumber).
+  //  3) Primer 6-8 dígitos que NO sea el folio de la factura.
+  let mCli = texto.match(/\b(\d{6,8})\b\s+\d{1,2}\s+[A-Za-z]{3,}\s+\d{4}/);
+  if (!mCli) mCli = linedTexto.match(/\n(\d{6,8})\s*\n\s*Fecha de emisi[oó]n/i);
   if (!mCli) mCli = linedTexto.match(/(\d{6,8})\s*\n\s*Fecha de emisi[oó]n/i);
   if (!mCli) mCli = texto.match(/\b(\d{6,8})\b[^\d]{0,40}Fecha de emisi[oó]n/i);
-  if (mCli) out.numeroCliente = mCli[1];
+  if (mCli) {
+    out.numeroCliente = mCli[1];
+  } else {
+    // Fallback: excluir el folio de "FACTURA ELECTRONICA Nº <folio>" y tomar el
+    // primer número de 6-8 dígitos restante (el N° de medidor de la pág. 2 llega
+    // después del cliente en el orden de lectura).
+    const mFolio = texto.match(/FACTURA\s+ELECTR[OÓ]NICA\s*N[º°o]?\s*(\d{6,9})/i);
+    const folio = mFolio ? mFolio[1] : "";
+    const cand = (texto.match(/\b\d{6,8}\b/g) || []).filter(x => x !== folio)[0];
+    if (cand) out.numeroCliente = cand;
+  }
 
   // Fecha: fin del período de lectura.
   const mFecha = texto.match(/Per[ií]odo de lectura:\s*\d{2}\/\d{2}\/\d{4}\s*-\s*(\d{2}\/\d{2}\/\d{4})/i);
